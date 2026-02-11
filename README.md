@@ -47,7 +47,7 @@ AutoType/
 └── README.md
 ```
 
-### 📁 <extension>
+### 📁 \<extension\>
 
 ```
 app/
@@ -97,7 +97,7 @@ app/
 └── content.js
 ```
 
-### 📁 <extension> - <popup ui>
+### 📁 \<extension\> 🔹 \<popup ui\>
 
 ```
 ui/
@@ -119,7 +119,7 @@ ui/
 └── popup.js
 ```
 
-### 📁 <extension> - <content script modules>
+### 📁 \<extension\> 🔹 \<content script modules\>
 
 ```
 modules/
@@ -148,7 +148,7 @@ modules/
 └── registry.js
 ```
 
-### 📁 <web and userDB>
+### 📁 \<web and userDB\>
 
 ```
 web/
@@ -184,7 +184,7 @@ web/
 ```
 
 
-### 📁 <server>
+### 📁 \<server\>
 
 ```
 server

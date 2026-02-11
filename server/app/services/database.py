@@ -2,24 +2,25 @@
 # -----------------------------
 # Imports
 # -----------------------------
+from config.env_config import SUPERBASE_PROJECT_ID, SUPERBASE_API_KEY, SUPERBASE_TABLE
 import requests
 
 
 # -----------------------------
 # Config
 # -----------------------------
-PROJECT_ID = "owvajbjbqhhwcznymirg"
-API_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im93dmFqYmpicWhod2N6bnltaXJnIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2OTU3ODAxNCwiZXhwIjoyMDg1MTU0MDE0fQ.nUw_z3a8RVN5Cg8BcwUUj4B-psbne_B7TbeVb47WoXw"
-TABLE = "json_store"
-BASE_URL = f"https://{PROJECT_ID}.supabase.co/rest/v1/{TABLE}"
+SUPERBASE_PROJECT_ID = "owvajbjbqhhwcznymirg"
+SUPERBASE_API_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im93dmFqYmpicWhod2N6bnltaXJnIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2OTU3ODAxNCwiZXhwIjoyMDg1MTU0MDE0fQ.nUw_z3a8RVN5Cg8BcwUUj4B-psbne_B7TbeVb47WoXw"
+SUPERBASE_TABLE = "json_store"
+BASE_URL = f"https://{SUPERBASE_PROJECT_ID}.supabase.co/rest/v1/{SUPERBASE_TABLE}"
 HEADERS = {
-    "apikey": API_KEY,
-    "Authorization": f"Bearer {API_KEY}",
+    "apikey": SUPERBASE_API_KEY,
+    "Authorization": f"Bearer {SUPERBASE_API_KEY}",
     "Content-Type": "application/json"
 }
-RPC_URL = f"https://{PROJECT_ID}.supabase.co/rest/v1/rpc/upsert_job"
-RPC_FETCH_AND_LOCK = f"https://{PROJECT_ID}.supabase.co/rest/v1/rpc/fetch_and_lock_next_job"
-RPC_RESET_URL = f"https://{PROJECT_ID}.supabase.co/rest/v1/rpc/reset_processing_jobs"
+RPC_URL = f"https://{SUPERBASE_PROJECT_ID}.supabase.co/rest/v1/rpc/upsert_job"
+RPC_FETCH_AND_LOCK = f"https://{SUPERBASE_PROJECT_ID}.supabase.co/rest/v1/rpc/fetch_and_lock_next_job"
+RPC_RESET_URL = f"https://{SUPERBASE_PROJECT_ID}.supabase.co/rest/v1/rpc/reset_processing_jobs"
 
 
 def reset_processing_jobs_on_startup() -> None:
