@@ -231,18 +231,44 @@ server
 
 1. Clone:
     ```bash
-    git clone https://github.com/kalpthakkar/AutoTyper.git
-    cd AutoTyper
+    git clone https://github.com/kalpthakkar/ApplyPilot.git
+    cd ApplyPilot
     ```
 
 2. Install Dependencies:
+
+
+    2.1 Web Server
+
+    ```Run
+    npm install --prefix web
+    ```
+
+    2.2 Web Server
+
     ```bash
+    npm install --prefix web
+    ```
+
+    2.3 Python Flask Server
+
+    ```bash
+    cd server
+    python -m venv venv  # optional, if you want a fresh env
+    source venv/bin/activate  # Linux/macOS
+    venv\Scripts\activate     # Windows
     pip install -r requirements.txt
     ```
+
+
+
+
     > ⚠️ Receiver requires system input access
     > - On macOS: enable Accessibility permissions
     > - On Linux: run inside X11 session
     > - On Windows: run normally (Admin not required)
+
+
 
 ### 📥 Receiver Setup
 
