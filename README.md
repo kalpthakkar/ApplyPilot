@@ -293,7 +293,183 @@ sudo apt install tesseract-ocr   # Linux
 brew install tesseract           # macOS
 ```
 
-⚡ Use which tesseract to find the path and update .env.
+⚡ Use which tesseract to find the path and update `.env`.
+
+
+### 🤖 Label Embedding Model
+
+The project uses the **BGE (Base Generative Embeddings)** model for label embeddings and semantic comparison in the extension’s background (offscreen). Precomputed label embeddings and thresholds are stored in `app/shared/config/labelConfig.js`, but the raw model files must be downloaded for offline computation or regeneration.
+
+1. Clone the model repository
+
+```bash
+git clone https://huggingface.co/Xenova/bge-base-en-v1.5 app/models/bge-base-en-v1.5
+```
+⚡ This will download the full ONNX model files, tokenizer, and configuration JSONs required for embedding computation.
+
+2. Verify the files (optional)
+```bash
+ls -lh app/models/bge-base-en-v1.5
+```
+
+
+### ⚠️ 6. System Permissions & Notes
+
+#### ⚠️ Some modules require system-level access:
+
+- Screen & Input Access (for automation scripts / pyautogui):
+
+    - macOS: Enable Accessibility permissions in System Preferences → Security & Privacy → Privacy → Accessibility
+    - Linux: Run inside an X11 session
+    - Windows: Can run normally (Admin not required, but may need permissions for certain directories)
+
+- File Uploads / Downloads: 
+    
+    - Ensure web/uploads and subfolders exist and are writable.
+
+- Tor / Proxy Usage:
+
+    - Set USE_TOR="true" in `.env` if routing through Tor is needed.
+
+- Ensure Tor browser is installed and the path is correct.
+
+- Supabase API Keys:
+
+    - Keep them secure. Do not push your .env to public repos.
+
+
+### Build Extension & Generate Resources
+
+#### Generate embeddings and thresholds
+
+```bash
+npm run generate:embeddings
+```
+⚡ This runs `generateLabelEmbeddings.js` and `generateThresholds.js`
+
+💬 Pre-computed embeddings are kept at `app/shared
+/labelEmbeddings.json`, making this step **optional**.
+
+
+#### Build the extension scripts
+
+```bash
+npm run ext:full:dev
+```
+
+⚡ Generates embeddings, thresholds, bundles all modules, and copies necessary static files.
+
+✅ Use this on initial setup or after adding new scripts/modules.
+
+##### Subsequent builds (dev mode, incremental/watch)
+
+```bash
+npm run ext:core:dev
+```
+⚡ Watches your source files and rebuilds only what changes. Faster for ongoing development.
+
+##### Build only core modules or individual scripts
+
+```bash
+npm run ext:background     # background.js
+npm run ext:content        # content.js
+npm run ext:modules        # all ATS & JobBoard modules
+npm run ext:gmail          # Gmail service
+npm run ext:popup          # popup.js
+npm run ext:offscreen      # offscreen.js
+npm run copy:models        # copy pre-trained models
+npm run copy:offscreen     # copy offscreen.html
+```
+💡 Tip: Only use individual scripts if you modify specific files — avoids rebuilding the entire extension.
+
+
+### Run Web Server
+
+```bash
+npm run web:dev
+```
+
+Open your browser
+
+#### Profile Setup
+
+```url
+http://<YOUR_IP_ADDRESS>:4000/
+```
+or open [localhost:4000](http://localhost:4000).
+
+Complete your profile — this is required for automation and form-filling.
+
+#### Job Dashboard
+
+```url
+http://<YOUR_IP_ADDRESS>:4000/jobs
+```
+or open [localhost:4000/jobs](http://localhost:4000/jobs).
+
+- ⚠️ You need to setup the Database for previewing the jobs. This project uses Superbase platform for hosting jobs over Postgres SQL DB.
+- ✨ Here users can track, manage, and monitor applied jobs, view execution results, and check application status.
+- 🚀 The **Run All** button at the *top-right corner* will start automation, but ensure the Python server is running in the background before clicking it.
+
+
+### Start Server
+
+```url
+cd server
+python -m app.server
+```
+
+- ⚡ This will launch the Flask backend that the web interface communicates with.
+- 📝 Make sure this is running before triggering any automation from the web dashboard.
+
+
+===========================================
+
+TEMPLATE BELOW
+
+===========================================
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
