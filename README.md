@@ -227,30 +227,28 @@ server
 
 ## 🚀 Installation & Setup
 
-### 📦 Installation
+### 📦 Clone
 
-1. Clone:
     ```bash
     git clone https://github.com/kalpthakkar/ApplyPilot.git
     cd ApplyPilot
     ```
 
-2. Install Dependencies:
+### 📦 Install Dependencies
 
+1. Browser Extension (Node.js)
 
-    2.1 Web Server
-
-    ```Run
-    npm install --prefix web
+    ```bash
+    npm install
     ```
 
-    2.2 Web Server
+2. Web Server (Node.js)
 
     ```bash
     npm install --prefix web
     ```
 
-    2.3 Python Flask Server
+3. Python Backend (Flask)
 
     ```bash
     cd server
@@ -260,13 +258,42 @@ server
     pip install -r requirements.txt
     ```
 
+### 🔮 Configure Environment Variables
 
+Copy the template
 
+    ```bash
+    cp .env.example .env
+    ```
 
-    > ⚠️ Receiver requires system input access
-    > - On macOS: enable Accessibility permissions
-    > - On Linux: run inside X11 session
-    > - On Windows: run normally (Admin not required)
+    > ⚙️ Edit `.env` with your preferred values
+    > - FAILURE_ACTION: "CONTINUE" | "ALERT_STOP" | "SILENT_STOP"
+    > - RUNNER_ID: Custom name for this machine
+    > - SUPERBASE_PROJECT_ID / SUPERBASE_API_KEY: Your Supabase credentials
+    > - TESSERACT_PATH: Path to Tesseract executable
+    > - BROWSER_NAME / PATH: Chrome or Brave executable path
+    > - etc...
+
+### 👁️ Install & Configure Tesseract
+
+#### Windows
+
+- Download from [Tesseract OCR](https://github.com/tesseract-ocr/tesseract)
+
+- Direct download from [SourceForge tesseract‑ocr‑alt downloads](https://sourceforge.net/projects/tesseract-ocr-alt/files/)
+
+- Install and note the path (e.g., `C:\Program Files\Tesseract-OCR\tesseract.exe`)
+
+- Update `TESSERACT_PATH` in `.env`
+
+#### Linux / macOS
+
+    ```bash
+    sudo apt install tesseract-ocr   # Linux
+    brew install tesseract           # macOS
+    ```
+
+⚡ Use which tesseract to find the path and update .env.
 
 
 
