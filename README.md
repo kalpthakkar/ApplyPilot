@@ -229,10 +229,10 @@ server
 
 ### 📦 Clone
 
-    ```bash
-    git clone https://github.com/kalpthakkar/ApplyPilot.git
-    cd ApplyPilot
-    ```
+```bash
+git clone https://github.com/kalpthakkar/ApplyPilot.git
+cd ApplyPilot
+```
 
 ### 📦 Install Dependencies
 
@@ -262,17 +262,17 @@ server
 
 Copy the template
 
-    ```bash
-    cp .env.example .env
-    ```
+```bash
+cp .env.example .env
+```
 
-    > ⚙️ Edit `.env` with your preferred values
-    > - FAILURE_ACTION: "CONTINUE" | "ALERT_STOP" | "SILENT_STOP"
-    > - RUNNER_ID: Custom name for this machine
-    > - SUPERBASE_PROJECT_ID / SUPERBASE_API_KEY: Your Supabase credentials
-    > - TESSERACT_PATH: Path to Tesseract executable
-    > - BROWSER_NAME / PATH: Chrome or Brave executable path
-    > - etc...
+> ⚙️ Edit `.env` with your preferred values
+> - `FAILURE_ACTION`: "CONTINUE" | "ALERT_STOP" | "SILENT_STOP"
+> - `RUNNER_ID`: Custom name for this machine
+> - `SUPERBASE_PROJECT_ID` / `SUPERBASE_API_KEY`: Your Supabase credentials
+> - `TESSERACT_PATH`: Path to Tesseract executable
+> - `BROWSER_NAME / PATH`: Chrome or Brave executable path
+> - etc...
 
 ### 👁️ Install & Configure Tesseract
 
@@ -288,10 +288,10 @@ Copy the template
 
 #### Linux / macOS
 
-    ```bash
-    sudo apt install tesseract-ocr   # Linux
-    brew install tesseract           # macOS
-    ```
+```bash
+sudo apt install tesseract-ocr   # Linux
+brew install tesseract           # macOS
+```
 
 ⚡ Use which tesseract to find the path and update .env.
 
