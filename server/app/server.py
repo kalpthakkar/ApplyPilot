@@ -3,7 +3,8 @@ from flask_cors import CORS
 from config.env_config import *
 from app.services.shared import automation_controller
 from app.services.run_jobs import Jobs, ExecutionResult
-from app.services.question_resolver import resolve_questions_with_llm
+from app.services.question_resolver.browser_question_resolver import resolve_questions as resolve_questions_with_browser
+from app.services.question_resolver.ollama_question_resolver import ollama_question_resolver
 from app.services.get_best_fit_resume import get_best_fit_resume, ResumeMetaModel
 from app.services.get_nearest_address import get_nearest_address, GetNearestAddressResponse
 from typing import Literal, Dict, Any
@@ -140,7 +141,7 @@ def handle_get_best_fit_resume():
     return jsonify(response.model_dump())  # Convert model-to-dict at the boundary
 
 @app.route('/resolve-questions-with-llm', methods=['POST'])
-def handle_resolve_questions_with_llm():
+def handle_resolve_questions():
 
     data: dict = request.json
 
@@ -150,7 +151,17 @@ def handle_resolve_questions_with_llm():
         return jsonify({"success": False, "payload": None, "errors": ["Invalid or missing JSON body"]}), 400
     
     # Execute Question Resolver
-    response: List[Dict[str, Any] | None] = resolve_questions_with_llm(data['questions'], data['job_details']) or None
+    if LLM_MODE_QUESTION_RESOLVER == "BROWSER":
+        response: List[Dict[str, Any] | None] = resolve_questions_with_browser(data['questions'], data['job_details']) or None
+    elif LLM_MODE_QUESTION_RESOLVER == "OLLAMA":
+        response: List[Dict[str, Any] | None] = ollama_question_resolver.resolve_questions(
+            data['questions'], 
+            data['job_details'], 
+            persist_system_prompt=False, 
+            persist_context_prompt=False
+        ) or None
+    else:
+        return jsonify({"success": False, "payload": None, "errors": ["Invalid LLM_MODE_QUESTION_RESOLVER in env"]}), 400
     
     # Update UI
     automation_controller.goto_automation_desktop()
@@ -169,6 +180,9 @@ def handle_set_job_execution_result() -> Dict[Literal['success', 'errors'], bool
         return jsonify({"success": False, "errors": ["Invalid or missing JSON body"]})  
     if (not all(arg in data for arg in ['result', 'id', 'fingerprint', 'soft_data', 'source'])) or (data['result'] not in ExecutionResult._value2member_map_):
         return jsonify({"success": False, "errors": ["Invalid JSON Body"]})
+    
+    if LLM_MODE_QUESTION_RESOLVER == "OLLAMA":
+        ollama_question_resolver.close_session()
 
     # Update Database
     statusSetResponse = jobs.set_execution_result(

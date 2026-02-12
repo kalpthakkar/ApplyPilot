@@ -4,7 +4,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 from typing import List, Dict
 
-env_path = Path(__file__).resolve().parents[1] / '.env'
+env_path = Path(__file__).resolve().parents[2] / '.env'
 load_dotenv(dotenv_path=env_path)
 
 # 🔗 Project root directory
@@ -24,6 +24,10 @@ SUPERBASE_PROJECT_ID = os.getenv("SUPERBASE_PROJECT_ID", "demo_project_id")
 SUPERBASE_API_KEY = os.getenv("SUPERBASE_API_KEY", "demo_api_key")
 SUPERBASE_TABLE = os.getenv("SUPERBASE_TABLE", "json_store")
 
+# =========================
+# OLLAMA Configuration
+# =========================
+OLLAMA_MODEL_NAME = os.getenv("OLLAMA_MODEL_NAME")
 
 # =========================
 # Project Structure Configuration
@@ -37,6 +41,11 @@ USER_RESUMES_ROOT = USER_DATABASE_DIR / os.getenv("USER_RESUMES_DIR", "uploads/r
 USER_PROJECTS_ROOT = USER_DATABASE_DIR / os.getenv("USER_PROJECTS_DIR", "uploads/projects")
 USER_ACHIEVEMENTS_ROOT = USER_DATABASE_DIR / os.getenv("USER_ACHIEVEMENTS_DIR", "uploads/achievements")
 
+
+# =========================
+# Question Resolver
+# =========================
+LLM_MODE_QUESTION_RESOLVER = os.getenv("LLM_MODE_QUESTION_RESOLVER", "BROWSER")
 
 # =========================
 # Automation Modules Configuration

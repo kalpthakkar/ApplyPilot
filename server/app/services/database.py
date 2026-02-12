@@ -9,9 +9,6 @@ import requests
 # -----------------------------
 # Config
 # -----------------------------
-SUPERBASE_PROJECT_ID = "owvajbjbqhhwcznymirg"
-SUPERBASE_API_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im93dmFqYmpicWhod2N6bnltaXJnIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2OTU3ODAxNCwiZXhwIjoyMDg1MTU0MDE0fQ.nUw_z3a8RVN5Cg8BcwUUj4B-psbne_B7TbeVb47WoXw"
-SUPERBASE_TABLE = "json_store"
 BASE_URL = f"https://{SUPERBASE_PROJECT_ID}.supabase.co/rest/v1/{SUPERBASE_TABLE}"
 HEADERS = {
     "apikey": SUPERBASE_API_KEY,
