@@ -56,7 +56,12 @@ export async function getPage() {
     ) {
         return GREENHOUSE_PAGES.CONFIRMATION_PAGE;
     } else if (
-        el(`[id="main"]`).textContent.includes("Sorry, but we can't find that page.")
+        el(SELECTORS[GREENHOUSE_PAGES.JOB_SEARCH_PAGE].jobSearchPageIdentifier)
+    ) {
+        return GREENHOUSE_PAGES.JOB_SEARCH_PAGE;
+    }
+    else if (
+        el('[id="main"]')?.textContent?.includes("Sorry, but we can't find that page.")
     ) {
         return GREENHOUSE_PAGES.PAGE_NOT_EXISTS;
     }
@@ -71,7 +76,10 @@ export async function initializePage(page) {
 
         case GREENHOUSE_PAGES.APPLICATION_PAGE: {
 
-            if (window.location.hostname === 'job-boards.greenhouse.io') {
+            if (
+                window.location.hostname.startsWith('job-boards.') 
+                && window.location.hostname.endsWith('.greenhouse.io')
+            ) {
                 const jobId = window.location.pathname?.split('/').pop();
                 window.location.href = `https://boards.greenhouse.io/embed/job_app?token=${jobId}`;
                 await sleep(9); // currently loaded greenshouse module instance will reset

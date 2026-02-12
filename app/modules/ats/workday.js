@@ -746,14 +746,32 @@ export async function startExecution(payload = {}) {
 				requiredStableChecks: 3,
 				padding: 0,
 			}))) {
+				const hasPageError = [...document.querySelectorAll('[data-automation-id="errorHeading"] [aria-describedby^="hint"]')]
+					.some(el => el.textContent.includes('Page Error'));
+				if (hasPageError) {
+					console.warn('[Workday] DOM failed to stabilize.');
+					window.location.reload(true);
+					await sleep(9); // currently loaded workday module instance will reset
+					continue;
+				}
 				console.warn('[Workday] DOM failed to stabilize — exiting loop.');
+				notifyTabState({state: 'unstable', running: false, executionResult: 'failed'}, {updateUI: false});
 				break;
 			}
 			throwIfAborted();
 
 			// Wait for DOM change after action
 			if (!(await domChangeChecker.waitForDomChange({ timeout: 10 }))) {
+				const hasPageError = [...document.querySelectorAll('[data-automation-id="errorHeading"] [aria-describedby^="hint"]')]
+					.some(el => el.textContent.includes('Page Error'));
+				if (hasPageError) {
+					console.log('[Workday] DOM unchanged after action.');
+					window.location.reload(true);
+					await sleep(9); // currently loaded workday module instance will reset
+					continue;
+				}
 				console.log('[Workday] DOM unchanged after action — exiting loop.');
+				notifyTabState({state: 'unchanged', running: false, executionResult: 'failed'}, {updateUI: false});
 				break;
 			}
 			domChangeChecker.setThreshold(0.36);

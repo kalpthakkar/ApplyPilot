@@ -1229,6 +1229,8 @@ export function DomChangeCheckerSmart(root = document.body, defaultThreshold = 0
 
 		const changeRatio = total === 0 ? 0 : (added + removed) / total;
 
+		console.log("CHANGE:::", changeRatio, " MY THRESHOLD:::", usedThreshold);
+
 		// Update snapshot for next comparison
 		lastSnapshot = currentSnapshot;
 

@@ -9,6 +9,7 @@ import { KNOWN_QUESTION_ACTION } from '@form/formResolver.js';
 export const GREENHOUSE_PAGES = Object.freeze({
     APPLICATION_PAGE: 'APPLICATION_PAGE',
     CONFIRMATION_PAGE: 'CONFIRMATION_PAGE',
+    JOB_SEARCH_PAGE: 'JOB_SEARCH_PAGE',
     PAGE_NOT_EXISTS: 'PAGE_NOT_EXISTS',
     UNKNOWN_PAGE: 'UNKNOWN_PAGE',
     // ... add more as needed
@@ -39,6 +40,9 @@ export const SELECTORS = {
     },
     [GREENHOUSE_PAGES.CONFIRMATION_PAGE] : {
         confirmationPageIdentifier: `[id="submission_received"], [id="application_confirmation"]`
+    },
+    [GREENHOUSE_PAGES.JOB_SEARCH_PAGE] : {
+        jobSearchPageIdentifier: `.filters #keyword-filter`
     }
 };
 

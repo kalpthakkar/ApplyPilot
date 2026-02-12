@@ -253,6 +253,11 @@ export async function startExecution(payload = {}) {
 					notifyTabState({state: 'submitted', executionResult: 'applied', running: false }, { updateUI: false });
 					break automationLoop;
 
+				case GREENHOUSE_PAGES.JOB_SEARCH_PAGE:
+					console.log('[Greenhouse] 🔎 Job Search Page — exiting loop.');
+					notifyTabState({state: 'jobSearchPage', executionResult: 'unsupported_platform', running: false }, { updateUI: false });
+					break automationLoop;
+
 				case GREENHOUSE_PAGES.PAGE_NOT_EXISTS:
 					console.log('[Greenhouse] 🔎 Page does not exists — exiting loop.');
 					notifyTabState({state: 'pageNotExists', executionResult: 'job_expired', running: false }, { updateUI: false });
