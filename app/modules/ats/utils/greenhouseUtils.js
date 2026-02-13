@@ -2205,7 +2205,7 @@ export const resolveQuestions = async (
             initNewIteration,
         }
     );
-};
+}
 
 
 /* --------------------------------------------------------------------------
