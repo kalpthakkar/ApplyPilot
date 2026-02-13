@@ -103,9 +103,13 @@ class BrowserUtils:
             isBrave = "brave.exe" in self.path
             if isBrave:
                 self.screen_util.split_screen(3, 3)
-                is_connected_img_path = os.path.join(SERVER_ROOT, "modules","browser","assets","tor_connected_successfully.png")
+                is_connected_img_path_1 = os.path.join(SERVER_ROOT, "modules","browser","assets","tor_connected_successfully_1.png")
+                is_connected_img_path_2 = os.path.join(SERVER_ROOT, "modules","browser","assets","tor_connected_successfully_2.png")
                 def is_connected():
-                    if self.screen_util.is_image_present(image_path=is_connected_img_path, region="Row1_Col1", confidence=0.75):
+                    if (
+                        self.screen_util.is_image_present(image_path=is_connected_img_path_1, region="Row1_Col1", confidence=0.75)
+                        or self.screen_util.is_image_present(image_path=is_connected_img_path_2, region="Row1_Col1", confidence=0.75)
+                    ):
                         return True
                 is_brave_tor_connected = dynamic_polling(
                     max_wait=20,
