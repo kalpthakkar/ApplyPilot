@@ -362,7 +362,6 @@ class BrowserUtils:
                 return False # polling ends if not returning None
 
         # Run the dynamic polling to check if page loading is complete
-        print("Max Wait::", max_wait)
         result = dynamic_polling(
             max_wait=max_wait,
             sub_processes={

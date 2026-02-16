@@ -1674,40 +1674,6 @@ async function formManager(
                 };
             }
 
-            if (question?.label?.textContent.includes('salary')) {
-                console.log("SALARY QUESTION... LEFT-ATTEMPT:", payload.remainingAttempts)
-            }
-            if (
-                payload.remainingAttempts === 1 
-                && (
-                    question?.label?.textContent.includes('salary')
-                    || question?.label?.textContent.includes('compensation')
-                )
-            ) {
-                console.log("SALARY QUESTION IN INIT VAL...", normalizedValue, ' || Type:', typeof normalizedValue)
-                // Type: Array[] of strings <- contains extracted number in their base form.
-                const normalizedNumberStrings = normalizedValue.match(/\d[\d,]*/g)?.map(n => n.replace(/,/g, '')) ?? [];
-                if (normalizedNumberStrings.length) { // numbers exist in answer
-                    normalizedValue = normalizedNumberStrings[0]
-                } else { // numbers does not exist in answer
-                    const salary = resolveAnswerValue(USER_DB, DB_KEY_MAP.SALARY_EXPECTATIONS, {min: 80000, max: 80000})
-                    const min = Number(salary.min);
-                    const max = Number(salary.max);
-                    if (Number.isNaN(min) || Number.isNaN(max)) {
-                        if (question.required) {
-                            normalizedValue = "80000";
-                        } else {
-                            return async () => {  return { status: EXECUTION_STATUS.OK }; };
-                        }
-                    } else if (min === max) {
-                        normalizedValue = String(min);
-                    } else {
-                        normalizedValue = String(Math.floor((min + max) / 2));
-                    }
-                }
-                console.log("SALARY QUESTION IN FINAL VAL...", normalizedValue, " || Type: ", typeof normalizedValue)
-            }
-
             let dispatchFocus = true;
             const spinButton = resolveValidElements(locators, [FIELD_VALIDATOR.text, (el) => el.getAttribute('role') == "spinbutton" && el.getAttribute('aria-label') != null], 'AND');
             if (spinButton.length) dispatchFocus = false;

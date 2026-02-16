@@ -4,7 +4,7 @@
 const PROJECT_ID = "owvajbjbqhhwcznymirg";
 const API_KEY = "sb_publishable_pIq55b08XKZMnqa2-JdUdQ_Jin36ree";
 const BASE_URL = `https://${PROJECT_ID}.supabase.co/rest/v1/json_store`;
-const API_BASE = 'http://10.0.0.200:5001';
+const API_BASE = 'http://10.0.0.199:5001';
 const RPC_URL = `https://${PROJECT_ID}.supabase.co/rest/v1/rpc`;
 
 const PAGE_SIZE = 20;

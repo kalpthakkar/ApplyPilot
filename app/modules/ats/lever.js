@@ -1,9 +1,9 @@
-// app/modules/greenhouse.js
+// app/modules/lever.js
 // ============================================================================
-// 🧩 Greenhouse Automation Module
+// 🧩 Lever Automation Module
 // ============================================================================
 // 📘 Purpose:
-// Handles the complete Greenhouse job application automation flow.
+// Handles the complete Lever job application automation flow.
 //
 // ⚙️ Invoked By:
 //   Higher-level ATS automation controller (e.g. content.js)
@@ -14,8 +14,8 @@
 
 import { createExecutionController, clearExecutionController, getExecutionSignal, abortExecution, throwIfAborted, waitUntil, retryUntilTrue, sleep, clamp, waitForStableDOMSmart, DomChangeCheckerSmart, notifyTabState, getTabState } from '@shared/utils/utility.js';
 import { click } from '@form/formHandlers.js';
-import { SELECTORS, GREENHOUSE_PAGES } from '@ats/config/greenhouseConfig.js';
-import { initExecutionPayload, getPage, initializePage, resolveQuestions, isQuestionSet, fetchGreenhouseVerificationPasscode, resolveSecurityCodeQuestion } from '@ats/utils/greenhouseUtils.js';
+import { SELECTORS, LEVER_PAGES } from '@ats/config/leverConfig.js';
+import { initExecutionPayload, getPage, initializePage, getQuestions, resolveQuestions, isQuestionSet } from '@ats/utils/leverUtils.js';
 
 // Create shared DOM change tracker instance
 const domChangeChecker = DomChangeCheckerSmart();
@@ -55,56 +55,50 @@ async function processApplicationFlow(page) {
 	/** ----------------------------------------------------------------------------
 	 * 🔹 Initialize Helpers 🔹 
 	 * ---------------------------------------------------------------------------- */
-	// Get current progress index:
-	const formHasErrors = () => {
-		const errorEls = els(`[class="field-error-msg"]`);
+	const hasUnsetRequiredQuestions = async (options = {}) => {
+        const questions = await getQuestions(options);
 
-		if (
-			errorEls.length === 1
-			&& (Boolean(errorEls[0]?.closest('div.field')?.querySelector(`[id="job_application_location"]`)?.value))
-		) {
-			// Not error is 'value' is already set.
-			return false;
-		}
+        return questions
+            .filter(q => q.required)
+            .some(q => !isQuestionSet(q));
+    };
+    const isResumeProcessing = () =>
+        !!document.querySelector(
+            ".application-form .application-question.resume .resume-upload-success[style]:not([style='']):not([style='display: inline;'])"
+        );
+    const isHCaptchaVisible = () => {
+        const container = document.querySelector('#h-captcha');
+        if (!container) return false;
 
-		return errorEls.length > 0;
+        const iframes = container.querySelectorAll('iframe');
+        if (!iframes.length) return false;
 
-	};
-	const securityQuestionExists = () =>
-		!!el(SELECTORS[LEVER_PAGES.APPLICATION_PAGE].securityCodeEnabledInput) ||
-		(() => {
-			const input = el(
-				SELECTORS[LEVER_PAGES.APPLICATION_PAGE].securityCodeInput
-			);
-			if (!input) return false;
+        return [...iframes].some(iframe => {
+            const style = window.getComputedStyle(iframe);
+            const rect = iframe.getBoundingClientRect();
 
-			const style = window.getComputedStyle(input);
-			return !(
-				style.display === 'none' ||
-				style.visibility === 'hidden' ||
-				input.classList.contains('hidden') ||
-				input.type === 'hidden' ||
-				input.disabled
-			);
-	})();
+            return (
+                style.display !== 'none' &&
+                style.visibility !== 'hidden' &&
+                style.opacity !== '0' &&
+                rect.width > 0 &&
+                rect.height > 0
+            );
+        });
+    };
 	const submitButtonExists = () => !!el(SELECTORS.APPLICATION_PAGE.submitButton);
-	const isSubmitProcessing = () => {
-		const submitButtonValue = el(SELECTORS.APPLICATION_PAGE.submitButton).value;
-		if (!submitButtonValue.includes('Submit') || submitButtonValue.includes('Processing')) {
-			return true;
-		}
-		return false;
-	}
 	async function submitAndWait(threshold) {
 		// Set Snapshot for main to detect changes.
 		domChangeChecker.setSnapshot();
 		domChangeChecker.setThreshold(threshold);
 
-		console.log("🖱️ Click Save & Continue.")
-		// await sleep(15) // Only to Debug
+		console.log("🖱️ Click Save & Continue. In 15 sec")
+		await sleep(15) // Only to Debug
 		await click(el(SELECTORS.APPLICATION_PAGE.submitButton));
 		// await sleep(60); // Only to Debug
 		await sleep(2); // mandatory to reflect state change before entering waitUntil
+
+        console.log("YOO 111")
 
 		// Dynamic wait until
 		await waitUntil(
@@ -113,14 +107,16 @@ async function processApplicationFlow(page) {
 				AND (
 					submitButtonExists,
 					OR (
-						formHasErrors,
-						securityQuestionExists
+						hasUnsetRequiredQuestions,
+						isHCaptchaVisible
 					),
-					NOT(isSubmitProcessing)
+					NOT(isResumeProcessing)
 				)
 			),
 			{timeout: 10}
-		)
+		);
+
+        console.log("YOO 222")
 	}
 
 	/** ----------------------------------------------------------------------------
@@ -142,51 +138,52 @@ async function processApplicationFlow(page) {
 	console.log("ALL UNRESOLVED QUESTIONS:::", unresolvedQuestions);
 	
 	const threshold = clamp((questions.length * 5)/100, 0.05, 0.50);
+	console.log("--- 1")
 	await submitAndWait(threshold);
-	if (formHasErrors()) { // Fallback 1
-		console.log("⚠️ Errors Detected. Performing one last resolution over errors")
-		await resolveQuestions(page, {errorOnly: true, maxIterations: 3, maxAttemptsPerQuestion: 3});
-		await submitAndWait(threshold);
-	}
-	if (formHasErrors()) { // Fallback 2
-		console.log("⚠️ Errors Detected. Performing one last resolution over errors")
-		await resolveQuestions(page, {errorOnly: true, maxIterations: 3, maxAttemptsPerQuestion: 3});
-		await submitAndWait(threshold);
-	}
-
-
-	// Requires - Security Code Verification
-	if (securityQuestionExists()) { // Resolve Security Code
-		const passCode = await fetchGreenhouseVerificationPasscode();
-		if (passCode) {
-			async function bypassSecurityQuestion() {
-				const success = await resolveSecurityCodeQuestion(passCode)
-				if (success) {
-					await submitAndWait(threshold);
-					if (!securityQuestionExists()) {
-						return true;
-					}
-				}
-				return false;
-			}
-			const success = await retryUntilTrue(
-				bypassSecurityQuestion,
-				1,      // max retries
-				1000    // 1s delay between retries
-			);
-			if (success) {
-				console.log('[Lever] Security Verification complete.');
-				console.groupEnd();
-				return true;
-			}
-		}
+    if (isResumeProcessing()) {
+        console.log("⚠️ Resume Still Processing.");
 		console.log('👎 Returning FALSE'); // Returning FALSE
 		notifyTabState({ state: 'failed', executionResult: 'failed' }, { updateUI: false });
 		console.groupEnd();
-		return false;
+		return false; // Terminate
+    }
+	console.log("--- 2")
+    if (isHCaptchaVisible()) {
+        console.log("⚠️ Unable to resolve captcha.");
+		console.log('👎 Returning FALSE'); // Returning FALSE
+		notifyTabState({ state: 'failed', executionResult: 'failed' }, { updateUI: false });
+		console.groupEnd();
+		return false; // Terminate
+    }
+	console.log("--- 3")
+	if (hasUnsetRequiredQuestions()) { // Fallback 1
+		console.log("⚠️ Errors Detected. Performing one last resolution over errors")
+		await resolveQuestions(page, {errorOnly: true, maxIterations: 3, maxAttemptsPerQuestion: 3});
+		await submitAndWait(threshold);
+	}
+	console.log("--- 4")
+    if (isHCaptchaVisible()) {
+        console.log("⚠️ Unable to resolve captcha.");
+		console.log('👎 Returning FALSE'); // Returning FALSE
+		notifyTabState({ state: 'failed', executionResult: 'failed' }, { updateUI: false });
+		console.groupEnd();
+		return false; // Terminate
+    }
+	console.log("--- 5")
+	if (hasUnsetRequiredQuestions()) { // Fallback 2
+		console.log("⚠️ Errors Detected. Performing one last resolution over errors")
+		await resolveQuestions(page, {errorOnly: true, maxIterations: 3, maxAttemptsPerQuestion: 3});
+		await submitAndWait(threshold);
 	}
 
-	if (formHasErrors()) {
+    if (isHCaptchaVisible()) {
+        console.log("⚠️ Unable to resolve captcha.");
+		console.log('👎 Returning FALSE'); // Returning FALSE
+		notifyTabState({ state: 'failed', executionResult: 'failed' }, { updateUI: false });
+		console.groupEnd();
+		return false; // Terminate
+    }
+	if (hasUnsetRequiredQuestions()) {
 		console.log('👎 Returning FALSE'); // Returning FALSE
 		notifyTabState({ state: 'failed', executionResult: 'failed' }, { updateUI: false });
 		console.groupEnd();
@@ -205,7 +202,7 @@ async function processApplicationFlow(page) {
 // ============================================================================
 
 /**
- * Entry point for Greenhouse automation.
+ * Entry point for Lever automation.
  * @param {Object} payload - Config data from popup/background.
  * @param {string} [payload.mode] - e.g., "manual", "lastApplication". // disabled
  */
@@ -262,7 +259,16 @@ export async function startExecution(payload = {}) {
 					console.log('[Lever] 🔎 Page does not exists — exiting loop.');
 					notifyTabState({state: 'pageNotExists', executionResult: 'job_expired', running: false }, { updateUI: false });
 					break automationLoop;
-					
+				
+                case LEVER_PAGES.CLOUDFLARE_ERROR_PAGE:
+					console.log('[Lever] ⚠️ Cloudflare Error — reloading to resolve.');
+                    window.history.back();
+                    window.location.reload();
+                    await sleep(9); // currently loaded 'content' module instance will reset
+                    // If reload doesn't redirect.
+					notifyTabState({ state: 'failed', executionResult: 'failed', running: false }, { updateUI: false });
+					break automationLoop;
+                
 				default: 
 					console.log('[Lever] ❓ Unrecognizable page — exiting loop.');
 					notifyTabState({executionResult: 'unsupported_platform', running: false }, { updateUI: false });
@@ -311,7 +317,7 @@ export async function startExecution(payload = {}) {
 // ============================================================================
 
 /**
- * Stops an active Greenhouse automation session gracefully.
+ * Stops an active Lever automation session gracefully.
  */
 export function stopExecution() {
   abortExecution();

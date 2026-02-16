@@ -7,7 +7,7 @@ import { DB_KEY_MAP } from '@shared/config/config.js';
 // ============================================================================
 // 📁 Form Dependencies
 // ============================================================================
-import { FIELD_TYPE, FIELD_VALIDATOR, similarity, filterCheckboxLocators, normalizeResolver, syncContainersSimple, getContainerIndex, getDatabaseIndex, removeContainerSimple, normalizeInputValue, normalizeRadioAnswers, normalizeCheckboxAnswers, normalizeDropdownAnswers } from '@form/formUtils.js';
+import { FIELD_TYPE, FIELD_VALIDATOR, similarity, filterCheckboxLocators, normalizeResolver, syncContainersSimple, getContainerIndex, getDatabaseIndex, removeContainerSimple, normalizeInputValue, normalizeRadioAnswers, normalizeCheckboxAnswers, normalizeDropdownAnswers, resolveResume, forceCommitFields } from '@form/formUtils.js';
 import { click, clickAll, fillInput, radioSelect, checkboxSelect, selectField, uploadFiles } from '@form/formHandlers.js';
 import { KNOWN_QUESTION_ACTION, RESOLUTION_STATUS, EXECUTION_STATUS, CORRECTION_TYPE, resolveATSQuestions } from '@form/formResolver.js'
 
@@ -23,20 +23,15 @@ import { LABEL_DEFINITIONS } from '@shared/config/labelConfig.js'
 import {fetchJobDataByKey} from '@shared/utils/atsUtils.js';
 
 // ============================================================================
-// 📁 GreenHouse Dependencies
+// 📁 Lever Dependencies
 // ============================================================================
-import { SELECTORS, GREENHOUSE_PAGES, KNOWN_QUESTIONS, getKnownQuestionKeys, getLabelEmbeddingKeys } from '@ats/config/leverConfig.js';
+import { SELECTORS, LEVER_PAGES, KNOWN_QUESTIONS, getKnownQuestionKeys, getLabelEmbeddingKeys } from '@ats/config/leverConfig.js';
 
 
 // ============================================================================
 // 🧩 Config
 // ============================================================================
 const USER_DB = await (await fetch(chrome.runtime.getURL('web/userData.json'))).json();
-
-const failedEducationDatabaseIdx = new Set(); // Holds DB index
-const failedEducationContainers = new Set(); // Holds Container index
-const failedWorkExperienceDatabaseIdx = new Set(); // Holds DB index
-const failedWorkExpContainers = new Set(); // Holds Container index
 
 const el = (sel) => document.querySelector(sel);
 const els = (sel) => [...document.querySelectorAll(sel)]; // returns array (not NodeList)
@@ -55,7 +50,21 @@ export async function getPage() {
         el(SELECTORS[LEVER_PAGES.DESCRIPTION_PAGE].descriptionPageIdentifier)
     ) {
         return LEVER_PAGES.DESCRIPTION_PAGE;
-    }
+    } else if (
+        el(SELECTORS[LEVER_PAGES.CONFIRMATION_PAGE].confirmationPageIdentifier)
+        || (window.location.pathname).endsWith('/thanks')
+    ) {
+        return LEVER_PAGES.CONFIRMATION_PAGE;
+    } else if (
+        el(SELECTORS[LEVER_PAGES.JOB_SEARCH_PAGE].jobSearchPageIdentifier)
+        || (window.location.pathname).endsWith('/careers')
+    ) {
+        return LEVER_PAGES.JOB_SEARCH_PAGE;
+    } else if (
+        el(SELECTORS[LEVER_PAGES.CLOUDFLARE_ERROR_PAGE].cloudflareErrorPageIdentifier)
+    ) {
+        return LEVER_PAGES.CLOUDFLARE_ERROR_PAGE;
+    }     
     return LEVER_PAGES.UNKNOWN_PAGE;
 }
 
@@ -68,11 +77,40 @@ export async function initializePage(page) {
         case LEVER_PAGES.APPLICATION_PAGE: {
 
             /** ------------------------------------------
-             * 🗑️ Remove all pre-uploaded resume files
+             * 📁 Upload Resume
              ------------------------------------------ */
-            // for (const deleteFileBtn of els(SELECTORS.APPLICATION_PAGE.deleteFileButtons)) {
-            //     await click(deleteFileBtn);
-            // }
+            if (el(`input[name="resume"]`)) {
+                const resumePath = await resolveResume(
+                    resolveAnswerValue(USER_DB, DB_KEY_MAP.RESUME)[Number(resolveAnswerValue(USER_DB, DB_KEY_MAP.PRIMARY_RESUME_CONTAINER_IDX))], 
+                    await getJobDetails(),
+                    { 
+                        ignoreLLM: !Boolean(resolveAnswerValue(USER_DB, DB_KEY_MAP.USE_LLM_RESUME, false)),
+                        timeoutSeconds: 15
+                    }
+                );
+                if (resumePath) {
+                    const res = await uploadFiles(
+                        [el(`input[name="resume"]`)], 
+                        resumePath, 
+                        {
+                            filenameSelector: '.application-form .application-question.resume .filename', 
+                            progressSelector: `.application-form .application-question.resume .resume-upload-success[style]:not([style='']):not([style='display: inline;'])`, 
+                            timeout: 15000,
+                            allowMultiple: false
+                        }
+                    );
+                    await sleep(2); // Allow DOM to settle
+                    if (!res.success) {
+                        console.warn(`⚠️ Failed to upload resume. Response:`, res)
+                        return false;
+                        // return true; // Patch - response likely incorrect | inefficient upload detection
+                    }
+                } else {
+                    console.warn(`⚠️ Failed fetching resume path.`)
+                }
+            }
+
+            return true;
         }
     }
     return true;
@@ -88,317 +126,313 @@ export async function initNewIteration() {
 /* --------------------------------------------------------------------------
  * 🔍 getQuestions()
  * ------------------------------------------------------------------------ */
-async function getQuestions({ errorOnly = null, forceSkipValidatorBank = [] } = {}) {
+export async function getQuestions({ errorOnly = null, forceSkipValidatorBank = [] } = {}) {
 
-    /**
-     * Find main question containers in the page
-     * @returns {NodeListOf<HTMLElement>}
-     */
-	function findQuestions(errorOnly) {
+    async function getAllQuestions({ forceSkipValidatorBank = [] } = {}) {
 
-        if (!errorOnly) {
+        /**
+         * Find main question containers in the page
+         * @returns {NodeListOf<HTMLElement>}
+         */
+        function findQuestions() {
+            // Constrained: .application-form ul li.application-question
             return els(`
-                .application-form ul li.application-question,
+                .application-form .application-question,
                 .application-form .application-additional
             `);
         }
-		const errorAlerts = document.querySelectorAll('[class="field-error-msg"]');
-		const questionsWithErrors = new Set();
-
-		errorAlerts.forEach(alert => {
-			const questionContainer = alert.closest('div.field');
-			if (questionContainer) {
-				questionsWithErrors.add(questionContainer);
-			}
-		});
-
-		return Array.from(questionsWithErrors);
-	}
-
-    
-    function getLabelText(question) {
-        // ---- Guard: invalid input ---------------------------------------------
-        if (!(question instanceof Element)) {
-            return '';
-        }
-
-        // ---- Helper: extract text excluding labels that contain inputs ----------
-        function getCleanText(container) {
-            if (container.classList.contains('application-additional')) {
-                return 'Additional information';
+        
+        function getLabelText(question) {
+            // ---- Guard: invalid input ---------------------------------------------
+            if (!(question instanceof Element)) {
+                return '';
             }
 
-            let labelText = container
-                .querySelector('.application-label, .default-label')
-                ?.textContent?.trim() ?? '';
+            // ---- Helper: extract text excluding labels that contain inputs ----------
+            function getCleanText(container) {
+                if (container.classList.contains('application-additional')) {
+                    return 'Additional information';
+                }
 
-            if (
-                labelText === '' &&
-                container.querySelectorAll('label').length === 1
-            ) {
-                labelText = container
-                .querySelector('label')
-                ?.textContent?.trim() ?? '';
+                let labelText = container
+                    .querySelector('.application-label, .default-label')
+                    ?.textContent?.trim() ?? '';
+
+                if (
+                    labelText === '' &&
+                    container.querySelectorAll('label').length === 1
+                ) {
+                    labelText = container
+                    .querySelector('label')
+                    ?.textContent?.trim() ?? '';
+                }
+
+                return labelText;
             }
+
+
+            // ---- Step 1: locate label/legend ---------------------------------------
+            const rawLabelText = getCleanText(question)
+
+            // ---- Step 2: normalize text safely -------------------------------------
+            const normalizedText = String(rawLabelText);
+
+            const withoutOptionSuffix =
+                normalizedText.split('--')[0].trim();
+
+            const withoutPleaseSelect =
+                withoutOptionSuffix.replace(
+                    /\s+Please select(?!\s+(your|the)\b)[\s\S]*$/i,
+                    ''
+                ).trim();
+
+            const finalLabelText =
+                withoutPleaseSelect.split('--')[0].trim();
+
+
+            // ---- Step 4: format return values --------------------------------------
+            let labelText = finalLabelText.trim();
 
             return labelText;
         }
 
 
-        // ---- Step 1: locate label/legend ---------------------------------------
-        const rawLabelText = getCleanText(question)
+        /**
+         * Find all associated fields for a given element
+         * Handles labels, nested inputs, nearby inputs, and ARIA dropdowns
+         * @param {HTMLElement} el 
+         * @returns {HTMLElement[]} Array of associated input elements
+         */
+        function findAssociatedFields(el) {
 
-        // ---- Step 2: normalize text safely -------------------------------------
-        const normalizedText = String(rawLabelText);
+            // 'surveysResponse' are hidden fields
+            const elements = [
+                ...el.querySelectorAll(
+                    "input:not([name^='surveysResponse']), \
+                    textarea:not([name^='surveysResponse']), \
+                    select:not([name^='surveysResponse'])"
+                )
+            ];
+            // const elements = [...el.querySelectorAll('input, textarea, select')];
 
-        const withoutOptionSuffix =
-            normalizedText.split('--')[0].trim();
+            return elements.filter(el => {
+                const style = window.getComputedStyle(el);
 
-        const withoutPleaseSelect =
-            withoutOptionSuffix.replace(
-                /\s+Please select(?!\s+(your|the)\b)[\s\S]*$/i,
-                ''
-            ).trim();
+                if (el.type === 'file') {
+                    return true;
+                }
 
-        const finalLabelText =
-            withoutPleaseSelect.split('--')[0].trim();
+                if (el.tagName === "INPUT" && el.style.display === 'none' && Boolean(el.getAttribute('data-url'))) {
+                    return true
+                }
 
+                if (el.tagName === 'SELECT') {
+                    return !el.disabled;
+                }
 
-        // ---- Step 4: format return values --------------------------------------
-        let labelText = finalLabelText.trim();
+                // Exclude hidden or disabled like.
+                if (style.display === 'none' || style.visibility === 'hidden' || el.classList.contains('hidden') || el.type === 'hidden' || el.disabled) {
+                    return false;
+                }
+                return true;
 
-        return labelText;
+            });
+
+        }
+
+        /**
+         * Split or preserve fields into logical groups based on modular rules.
+         * @param {HTMLElement[]} fields 
+         * @param {Array<{name:string,test:(el:HTMLElement)=>boolean,splitIndividually?:boolean}>} segregationRules 
+         * @returns {HTMLElement[][]} Array of field groups
+         */
+        function createFieldGroups(fields, segregationRules = []) {
+            if (!Array.isArray(fields) || !fields.length) return [];
+            const matchedGroups = [];
+            const unmatched = new Set(fields);
+
+            for (const rule of segregationRules) {
+                const group = fields.filter(el => rule.test(el));
+                if (!group.length) continue;
+
+                if (rule.splitIndividually) {
+                // Each element becomes its own subgroup
+                for (const el of group) {
+                    matchedGroups.push([el]);
+                    unmatched.delete(el);
+                }
+                } else {
+                // Keep all matches in a single group
+                matchedGroups.push(group);
+                group.forEach(el => unmatched.delete(el));
+                }
+            }
+
+            // Any remaining unmatched fields are placed together in a single group
+            if (unmatched.size) {
+                matchedGroups.push([...unmatched]);
+            }
+
+            return matchedGroups;
+        }
+
+        /**
+         * Select the "base" field from a list of candidate fields
+         * Priority:
+         *  1️⃣ ARIA combobox/listbox (custom dropdown)
+         *  2️⃣ Real form controls (input/textarea/select)
+         *  3️⃣ Button (last resort)
+         *  4️⃣ Fallback: first element
+         * @param {HTMLElement[]} fields 
+         * @returns {HTMLElement|null}
+         */
+        function selectBaseField(fields) {
+            if (!Array.isArray(fields) || !fields.length) return null;
+
+            const selectEl = fields.find(el =>
+                el.tagName === 'SELECT' &&
+                !el.disabled
+            );
+            if (selectEl) return selectEl;
+
+            // 1️⃣ ARIA combobox / listbox
+            const ariaControl = fields.find(el =>
+                el.getAttribute('role') === 'combobox' ||
+                el.getAttribute('aria-haspopup') === 'listbox'
+            );
+            if (ariaControl) return ariaControl;
+
+            // 2️⃣ Prefer real form controls
+            const realControl = fields.find(el =>
+                el.matches('input:not([type="hidden"]), textarea, select')
+            );
+            if (realControl) return realControl;
+
+            // 3️⃣ Button as last resort
+            const button = fields.find(el => el.tagName === 'BUTTON');
+            if (button) return button;
+
+            return fields[0] || null;
+        }
+
+        /**
+         * Determine the type of a field
+         * @param {HTMLElement} el 
+         * @returns {string} Field type (radio, checkbox, text, select, multiselect, dropdown, button, unknown)
+         */
+        function getFieldType(el) {
+            if (!el) return 'unknown';
+
+            const tag = el.tagName.toLowerCase();
+
+            // 1️⃣ Custom multiselect (your project-specific attribute)
+            if (el.hasAttribute('data-uxi-multiselect-id')) {
+                return 'multiselect';
+            }
+
+            // 2️⃣ Input types
+            if (tag === 'input') {
+                const type = el.type?.toLowerCase();
+
+                if (type === 'radio') return 'radio';
+                if (type === 'checkbox') return 'checkbox';
+                if (type === 'text') return 'text';
+                if (type === 'password') return 'password';
+                if (type === 'email') return 'email';
+                if (type === 'number') return 'number';
+                if (type === 'tel') return 'tel';
+                if (type === 'url') return 'url';
+                if (type === 'date') return 'date';
+                if (type === 'hidden') return 'hidden';
+                if (type === 'file') return 'file';
+            }
+
+            // 3️⃣ Textarea
+            if (tag === 'textarea') return 'textarea';
+
+            // 4️⃣ Select (including single/multiple select)
+            if (tag === 'select') {
+                return el.multiple ? 'multiselect' : 'select';
+            }
+
+            // 5️⃣ Button dropdowns
+            if (tag === 'button') {
+                if (el.getAttribute('aria-haspopup') === 'listbox') return 'dropdown';
+                return 'button';
+            }
+
+            // 6️⃣ ARIA-based dropdown detection (for custom components)
+            if (el.getAttribute('role') === 'combobox' || el.getAttribute('aria-haspopup') === 'listbox') {
+                return 'dropdown';
+            }
+
+            return 'unknown';
+        }
+
+        /**
+         * Determine if any of the elements is required
+         * Checks:
+         *  - HTML required attribute
+         *  - aria-required attribute
+         *  - descendant aria-required
+         *  - Label ending with *
+         *  - Fieldset legend ending with *
+         * @param {HTMLElement[]} elements 
+         * @returns {boolean}
+         */
+        function isAnyRequired(elements = []) {
+            for (const el of elements) {
+                if (!(el instanceof HTMLElement)) continue;
+
+                // 1️⃣ Native required attribute
+                if (el.matches('input, textarea, select') && el.required) return true;
+
+                // 2️⃣ aria-required on the element itself
+                if (el.getAttribute('aria-required') === 'true') return true;
+
+                // 3️⃣ aria-required on descendants (custom components)
+                if (el.querySelector('[aria-required="true"]')) return true;
+
+                // 4️⃣ Label text ends with *
+                if (el.tagName === 'LABEL') {
+                    const text = el.textContent?.trim();
+                    if (text && /\*\s*$/.test(text)) return true;
+                }
+
+                // 5️⃣ Fieldset / legend convention (direct or nested)
+                const legend = el.tagName === 'FIELDSET' ? el.querySelector('legend') : el.querySelector('fieldset legend');
+                if (legend?.textContent?.trim().endsWith('*')) return true;
+            }
+
+            return false;
+        }
+
+        // ---------- MAIN LOGIC ----------
+        const results = [];
+        const questions = findQuestions();
+        const segregationRules = [];
+        for (const question of questions) {
+            const labelText = getLabelText(question);
+            let fields;
+            fields = findAssociatedFields(question);
+            const fieldGroups = createFieldGroups(fields, segregationRules);
+            for (fields of fieldGroups) {
+                if (resolveValidElements(fields, forceSkipValidatorBank, 'OR').length) continue;
+                const baseField = selectBaseField(fields);
+                const type = getFieldType(baseField);
+                const required = (labelText?.endsWith('*')) ? true : isAnyRequired([question, ...fields]) ? true : false
+                if (fields.length) results.push({ labelText, fields, type, required });
+            }
+        }
+        return results;
     }
 
-
-	/**
-     * Find all associated fields for a given element
-     * Handles labels, nested inputs, nearby inputs, and ARIA dropdowns
-     * @param {HTMLElement} el 
-     * @returns {HTMLElement[]} Array of associated input elements
-     */
-	function findAssociatedFields(el) {
-
-        // 'surveysResponse' are hidden fields
-        const elements = [
-            ...el.querySelectorAll(
-                "input:not([name^='surveysResponse']), \
-                textarea:not([name^='surveysResponse']), \
-                select:not([name^='surveysResponse'])"
-            )
-        ];
-        // const elements = [...el.querySelectorAll('input, textarea, select')];
-
-        return elements.filter(el => {
-            const style = window.getComputedStyle(el);
-
-            if (el.type === 'file') {
-                return true;
-            }
-
-            if (el.tagName === "INPUT" && el.style.display === 'none' && Boolean(el.getAttribute('data-url'))) {
-                return true
-            }
-
-            if (el.tagName === 'SELECT') {
-                return !el.disabled;
-            }
-
-            // Exclude hidden or disabled like.
-            if (style.display === 'none' || style.visibility === 'hidden' || el.classList.contains('hidden') || el.type === 'hidden' || el.disabled) {
-                return false;
-            }
-            return true;
-
-        });
-
-	}
-
-	/**
-	 * Split or preserve fields into logical groups based on modular rules.
-	 * @param {HTMLElement[]} fields 
-	 * @param {Array<{name:string,test:(el:HTMLElement)=>boolean,splitIndividually?:boolean}>} segregationRules 
-	 * @returns {HTMLElement[][]} Array of field groups
-	 */
-	function createFieldGroups(fields, segregationRules = []) {
-		if (!Array.isArray(fields) || !fields.length) return [];
-		const matchedGroups = [];
-		const unmatched = new Set(fields);
-
-		for (const rule of segregationRules) {
-			const group = fields.filter(el => rule.test(el));
-			if (!group.length) continue;
-
-			if (rule.splitIndividually) {
-			// Each element becomes its own subgroup
-			for (const el of group) {
-				matchedGroups.push([el]);
-				unmatched.delete(el);
-			}
-			} else {
-			// Keep all matches in a single group
-			matchedGroups.push(group);
-			group.forEach(el => unmatched.delete(el));
-			}
-		}
-
-		// Any remaining unmatched fields are placed together in a single group
-		if (unmatched.size) {
-			matchedGroups.push([...unmatched]);
-		}
-
-		return matchedGroups;
-	}
-
-	 /**
-     * Select the "base" field from a list of candidate fields
-     * Priority:
-     *  1️⃣ ARIA combobox/listbox (custom dropdown)
-     *  2️⃣ Real form controls (input/textarea/select)
-     *  3️⃣ Button (last resort)
-     *  4️⃣ Fallback: first element
-     * @param {HTMLElement[]} fields 
-     * @returns {HTMLElement|null}
-     */
-	function selectBaseField(fields) {
-		if (!Array.isArray(fields) || !fields.length) return null;
-
-        const selectEl = fields.find(el =>
-			el.tagName === 'SELECT' &&
-			!el.disabled
-		);
-        if (selectEl) return selectEl;
-
-		// 1️⃣ ARIA combobox / listbox
-		const ariaControl = fields.find(el =>
-			el.getAttribute('role') === 'combobox' ||
-			el.getAttribute('aria-haspopup') === 'listbox'
-		);
-		if (ariaControl) return ariaControl;
-
-		// 2️⃣ Prefer real form controls
-		const realControl = fields.find(el =>
-			el.matches('input:not([type="hidden"]), textarea, select')
-		);
-		if (realControl) return realControl;
-
-		// 3️⃣ Button as last resort
-		const button = fields.find(el => el.tagName === 'BUTTON');
-		if (button) return button;
-
-		return fields[0] || null;
-	}
-
-	/**
-     * Determine the type of a field
-     * @param {HTMLElement} el 
-     * @returns {string} Field type (radio, checkbox, text, select, multiselect, dropdown, button, unknown)
-     */
-	function getFieldType(el) {
-		if (!el) return 'unknown';
-
-		const tag = el.tagName.toLowerCase();
-
-		// 1️⃣ Custom multiselect (your project-specific attribute)
-		if (el.hasAttribute('data-uxi-multiselect-id')) {
-			return 'multiselect';
-		}
-
-		// 2️⃣ Input types
-		if (tag === 'input') {
-			const type = el.type?.toLowerCase();
-
-			if (type === 'radio') return 'radio';
-			if (type === 'checkbox') return 'checkbox';
-			if (type === 'text') return 'text';
-			if (type === 'password') return 'password';
-			if (type === 'email') return 'email';
-			if (type === 'number') return 'number';
-			if (type === 'tel') return 'tel';
-			if (type === 'url') return 'url';
-			if (type === 'date') return 'date';
-			if (type === 'hidden') return 'hidden';
-			if (type === 'file') return 'file';
-		}
-
-		// 3️⃣ Textarea
-		if (tag === 'textarea') return 'textarea';
-
-		// 4️⃣ Select (including single/multiple select)
-		if (tag === 'select') {
-			return el.multiple ? 'multiselect' : 'select';
-		}
-
-		// 5️⃣ Button dropdowns
-		if (tag === 'button') {
-			if (el.getAttribute('aria-haspopup') === 'listbox') return 'dropdown';
-			return 'button';
-		}
-
-		// 6️⃣ ARIA-based dropdown detection (for custom components)
-		if (el.getAttribute('role') === 'combobox' || el.getAttribute('aria-haspopup') === 'listbox') {
-			return 'dropdown';
-		}
-
-		return 'unknown';
-	}
-
-	/**
-     * Determine if any of the elements is required
-     * Checks:
-     *  - HTML required attribute
-     *  - aria-required attribute
-     *  - descendant aria-required
-     *  - Label ending with *
-     *  - Fieldset legend ending with *
-     * @param {HTMLElement[]} elements 
-     * @returns {boolean}
-     */
-	function isAnyRequired(elements = []) {
-		for (const el of elements) {
-			if (!(el instanceof HTMLElement)) continue;
-
-			// 1️⃣ Native required attribute
-			if (el.matches('input, textarea, select') && el.required) return true;
-
-			// 2️⃣ aria-required on the element itself
-			if (el.getAttribute('aria-required') === 'true') return true;
-
-			// 3️⃣ aria-required on descendants (custom components)
-			if (el.querySelector('[aria-required="true"]')) return true;
-
-			// 4️⃣ Label text ends with *
-			if (el.tagName === 'LABEL') {
-				const text = el.textContent?.trim();
-				if (text && /\*\s*$/.test(text)) return true;
-			}
-
-			// 5️⃣ Fieldset / legend convention (direct or nested)
-			const legend = el.tagName === 'FIELDSET' ? el.querySelector('legend') : el.querySelector('fieldset legend');
-			if (legend?.textContent?.trim().endsWith('*')) return true;
-		}
-
-		return false;
-	}
-
-	// ---------- MAIN LOGIC ----------
-	const results = [];
-	const questions = findQuestions(errorOnly);
-	const segregationRules = [];
-	for (const question of questions) {
-        const labelText = getLabelText(question);
-        let fields;
-        fields = findAssociatedFields(question);
-		const fieldGroups = createFieldGroups(fields, segregationRules);
-		for (fields of fieldGroups) {
-            if (resolveValidElements(fields, forceSkipValidatorBank, 'OR').length) continue;
-			const baseField = selectBaseField(fields);
-			const type = getFieldType(baseField);
-            const required = (labelText?.endsWith('*')) ? true : isAnyRequired([question, ...fields]) ? true : false
-			if (fields.length) results.push({ labelText, fields, type, required });
-		}
-	}
-	return results;
+    const allQuestions = await getAllQuestions({forceSkipValidatorBank});
+    if (!errorOnly) {
+        return allQuestions
+    } else {
+        return allQuestions.filter(q => q.required && !isQuestionSet(q));
+    }
 }
 
 /* --------------------------------------------------------------------------
@@ -493,7 +527,7 @@ export async function initExecutionPayload() {
             jobId: jobId,
             jobData: jobData, // fetched from DB - supports automation
             soft_data: soft_data, // scraped from webpage - supports automation & post DB updation
-            source: 'greenhouse'
+            source: 'lever'
         }, {updateUI: false});
     }
 }
@@ -503,52 +537,9 @@ export async function initExecutionPayload() {
  * ------------------------------------------------------------------------ */
 async function resolveAnswer(question, locators, matchedQuestion, labelEmbeddingKeys) {
 
-    async function resolveResume({ignoreLLM = false} = {}) {
-        let resumePath;
-        // Request server via background.js
-        if (!ignoreLLM && resolveAnswerValue(USER_DB, DB_KEY_MAP.USE_LLM_RESUME, false)) {
-            const jobDetails = await getJobDetails();
-            const jobLocations = jobDetails?.locations;
-            const jobDescription = jobDetails?.title 
-                ? `Job Role: ${jobDetails?.title}\n\n${jobDetails?.description}` 
-                : jobDetails?.description;
-            // Request server via background.js
-            resumePath = await getBestResume(jobLocations, jobDescription);
-        }
-        // Fallback to primary address
-        if (resumePath == null){ 
-            const primaryResume = resolveAnswerValue(USER_DB, DB_KEY_MAP.RESUME)[Number(resolveAnswerValue(USER_DB, DB_KEY_MAP.PRIMARY_RESUME_CONTAINER_IDX))];
-            if ('resumeStoredPath' in primaryResume) resumePath = primaryResume['resumeStoredPath'];
-        }
-        // Return if valid
-        if (resumePath != null) {
-            const uploadsRootPath = 'web/uploads/';
-            return uploadsRootPath + resumePath;
-        }
-        return null;
-    }
-
-    function resolveTodaysDate(locators) {
-        const validLocators = resolveValidElements(locators, [FIELD_VALIDATOR.text, (el) => containsAny(el.getAttribute('class'), ['start-date', 'end-date']) || containsAny(el.getAttribute('placeholder'), ['MM', 'YYYY'])], 'AND');
-        if (validLocators.length) {
-            if (validLocators[0].classList.contains("day") || validLocators[0].getAttribute('placeholder') === 'DD') {
-                return getLocalDate('dd');
-            }
-            else if (validLocators[0].classList.contains("month") || validLocators[0].getAttribute('placeholder') === 'MM') {
-                return getLocalDate('mm');
-            }
-            else if (validLocators[0].classList.contains("year") || validLocators[0].getAttribute('placeholder') === 'YYYY') {
-                return getLocalDate('yyyy');
-            }
-        } else {
-            // console.log("Valid Locators NOT Found");
-        }
-        return null;
-    }
-
-
     let val;
     let dbAnswerKey;
+    const jobData = await getJobDetails();
 
     // ----------- ELEMENT MATCH (STRONGEST SIGNAL) -----------
     if (matchedQuestion) {
@@ -562,280 +553,24 @@ async function resolveAnswer(question, locators, matchedQuestion, labelEmbedding
         
         // ---------- SPECIAL DB KEYS ----------
 
-        // ========== ADDRESS ==========
-        if (hasNestedKey && dbAnswerKey.startsWith(DB_KEY_MAP.ADDRESSES)) { 
-
-            // ========== LOCATION (CITY) ==========
-            if (DB_KEY_MAP.CITY.endsWith(dbNestedKey)) { // Location (City)
-                const searchQueries = await getLocationSearchQueries();
-                return {
-                    status: RESOLUTION_STATUS.ANSWERED,
-                    value: searchQueries,
-                    locators,
-                    source: "element",
-                    meta: {dbAnswerKey}
-                };
-            }  
-
-        }
-        // ========== EDUCATION ==========
-        else if (hasNestedKey && dbAnswerKey.startsWith(DB_KEY_MAP.EDUCATION)) {
-            const questionElement = locators.find(l => l instanceof HTMLElement && l.isConnected) || null;            
-            if (!questionElement) {
-                return {
-                    status: RESOLUTION_STATUS.STRUCTURAL_FAILURE,
-                    correction: {
-                        type: CORRECTION_TYPE.MARK_QUESTION_FAILED,
-                        questionId: question,
-                    }
-                };
-            }
-
-            // Get container index
-            const containerIdx = getContainerIndex({locator: questionElement, containerSelector: SELECTORS.APPLICATION_PAGE.educationContainers});
-            // Get database index (to answer this container)
-            const dbAnswerKeyIdx = getDatabaseIndex(containerIdx, failedEducationDatabaseIdx)
-            // Get full education history
-            const fullEducationHistory = resolveAnswerValue(USER_DB, DB_KEY_MAP.EDUCATION, []);
-
-            // Does container contain delete button.
-            const containDeleteButton = Boolean(els(SELECTORS.APPLICATION_PAGE.educationContainers)[containerIdx].querySelector(SELECTORS.APPLICATION_PAGE.educationDeleteButton))
-
-            // Verify container number resides within total education entries.
-            if (dbAnswerKeyIdx >= fullEducationHistory.length) {
-                if (containDeleteButton) {
-                    return {
-                        status: RESOLUTION_STATUS.STRUCTURAL_FAILURE,
-                        correction: {
-                            type: CORRECTION_TYPE.REMOVE_EDU_CONTAINER,
-                            containerIdx: containerIdx,
-                            dbAnswerKeyIdx: dbAnswerKeyIdx
-                        }
-                    };
-                }
-                else {
-                    if (question.required) {
-                        val = resolveTodaysDate(locators); // Value will be set as per today's date (if question type matches date type validators)
-                        if (val != null) {
-                            return {
-                                status: RESOLUTION_STATUS.ANSWERED,
-                                value: val,
-                                locators,
-                                source: "element",
-                                meta: {dbAnswerKey, dbAnswerKeyIdx, containerIdx}
-                            };
-                        }
-                    }
-                    return {
-                        status: RESOLUTION_STATUS.STRUCTURAL_FAILURE,
-                        correction: {
-                            type: CORRECTION_TYPE.MARK_QUESTION_FAILED,
-                            questionId: question,
-                        },
-                    };
-                }
-            }
-
-            // Set the answer
-            val = resolveAnswerValue(fullEducationHistory[dbAnswerKeyIdx], matchedQuestion.value, undefined);
-
-            if (val == null) {
-                if (!question.required) {
-                    return {
-                        status: RESOLUTION_STATUS.SKIPPED,
-                        reason: "Optional education field with no data",
-                    };
-                } else {
-                    if (containDeleteButton) {
-                        return {
-                            status: RESOLUTION_STATUS.ERROR,
-                            correction: {
-                                type: CORRECTION_TYPE.REMOVE_EDU_CONTAINER,
-                                containerIdx: containerIdx,
-                                dbAnswerKeyIdx: dbAnswerKeyIdx
-                            }
-                        };
-                    }
-                    else {
-                        
-                        val = resolveTodaysDate(locators); // Value will be set as per today's date (if question type matches date type validators)
-                        if (val != null) {
-                            return {
-                                status: RESOLUTION_STATUS.ANSWERED,
-                                value: val,
-                                locators,
-                                source: "element",
-                                meta: {dbAnswerKey, dbAnswerKeyIdx, containerIdx}
-                            };
-                        }
-
-                        return {
-                            status: RESOLUTION_STATUS.STRUCTURAL_FAILURE,
-                            correction: {
-                                type: CORRECTION_TYPE.MARK_QUESTION_FAILED,
-                                questionId: question,
-                            },
-                        };
-                    }
-                }
-            }
+        // ========== CURRENT LOCATION ==========
+        if (dbAnswerKey === DB_KEY_MAP.ADDRESSES) { 
+            const searchQueries = await getLocationSearchQueries();
             return {
                 status: RESOLUTION_STATUS.ANSWERED,
-                value: val,
+                value: searchQueries,
                 locators,
                 source: "element",
-                meta: {dbAnswerKey, dbAnswerKeyIdx, containerIdx}
+                meta: {dbAnswerKey}
             };
         }
-
-
-        // ========== WORK EXPERIENCE ==========
-        else if (hasNestedKey && dbAnswerKey?.startsWith(DB_KEY_MAP.WORK_EXPERIENCES)) {
-            const questionElement = locators.find(l => l instanceof HTMLElement && l.isConnected) || null;
-            if (!questionElement) {
-                return {
-                    status: RESOLUTION_STATUS.STRUCTURAL_FAILURE,
-                    correction: {
-                        type: CORRECTION_TYPE.MARK_QUESTION_FAILED,
-                        questionId: question,
-                    },
-                };
-            }
-
-            // Get container index
-            const containerIdx = getContainerIndex({locator: questionElement, containerSelector: SELECTORS.APPLICATION_PAGE.workExperienceContainers});
-            // Get database index (to answer this container)
-            const dbAnswerKeyIdx = getDatabaseIndex(containerIdx, failedWorkExperienceDatabaseIdx)
-            // Get full work history
-            const fullWorkExperience = resolveAnswerValue(USER_DB, DB_KEY_MAP.WORK_EXPERIENCES, []);
-
-            // Does container contain delete button.
-            const containDeleteButton = Boolean(els(SELECTORS.APPLICATION_PAGE.workExperienceContainers)[containerIdx]?.querySelector(SELECTORS.APPLICATION_PAGE.workExperienceDeleteButton))
-
-            // Verify container number resides within total work experience entries. 
-            if (dbAnswerKeyIdx >= fullWorkExperience.length) {
-                if (containDeleteButton) {
-                    return {
-                        status: RESOLUTION_STATUS.STRUCTURAL_FAILURE,
-                        correction: {
-                            type: CORRECTION_TYPE.REMOVE_WORK_CONTAINER,
-                            containerIdx: containerIdx,
-                            dbAnswerKeyIdx: dbAnswerKeyIdx
-                        },
-                    };
-                }
-                else {
-
-                    if (question.required) {
-                        val = resolveTodaysDate(locators); // Value will be set as per today's date (if question type matches date type validators)
-                        if (val != null) {
-                            return {
-                                status: RESOLUTION_STATUS.ANSWERED,
-                                value: val,
-                                locators,
-                                source: "element",
-                                meta: {dbAnswerKey, dbAnswerKeyIdx, containerIdx}
-                            };
-                        }
-                    }
-
-                    return {
-                        status: RESOLUTION_STATUS.STRUCTURAL_FAILURE,
-                        correction: {
-                            type: CORRECTION_TYPE.MARK_QUESTION_FAILED,
-                            questionId: question,
-                        },
-                    };
-                }
-            }
-
-            // Set the answer
-            val = resolveAnswerValue(fullWorkExperience[dbAnswerKeyIdx], matchedQuestion.value, undefined);
-
-            if (!val) {
-                if (
-                    matchedQuestion?.action === KNOWN_QUESTION_ACTION.SKIP_IF_DATA_UNAVAILABLE
-                    && (
-                        (!question.required) 
-                        || (question.required && isQuestionSet(question))
-                    )
-                ) {
-                    return {
-                        status: RESOLUTION_STATUS.SKIPPED,
-                        reason: "Explicitly configured to skip when no data is present in database (safe: question either not mandatory or already set).",
-                    };
-                }
-                else if (!question.required) {
-                    return {
-                        status: RESOLUTION_STATUS.SKIPPED,
-                        reason: "Optional work experience field with no data",
-                    };
-                } 
-                else {
-                    if (containDeleteButton) {
-                        return {
-                            status: RESOLUTION_STATUS.ERROR,
-                            correction: {
-                                type: CORRECTION_TYPE.REMOVE_WORK_CONTAINER,
-                                containerIdx: containerIdx,
-                                dbAnswerKeyIdx: dbAnswerKeyIdx
-                            }
-                        };
-                    }
-                    else {
-
-                        val = resolveTodaysDate(locators); // Value will be set as per today's date (if question type matches date type validators)
-                        if (val != null) {
-                            return {
-                                status: RESOLUTION_STATUS.ANSWERED,
-                                value: val,
-                                locators,
-                                source: "element",
-                                meta: {dbAnswerKey, dbAnswerKeyIdx, containerIdx}
-                            };
-                        }
-
-                        return {
-                            status: RESOLUTION_STATUS.STRUCTURAL_FAILURE,
-                            correction: {
-                                type: CORRECTION_TYPE.MARK_QUESTION_FAILED,
-                                questionId: question,
-                            },
-                        };
-                    }
-                }
-            }
-
-            return {
-                status: RESOLUTION_STATUS.ANSWERED,
-                value: val,
-                locators,
-                source: "element",
-                meta: {dbAnswerKey, dbAnswerKeyIdx, containerIdx}
-            };
-        }
-
 
         // ========== RESUME ==========
         else if (hasNestedKey && dbAnswerKey.startsWith(DB_KEY_MAP.RESUME)) {
-
-            const val = await resolveResume();
-            if (val != null) {
-                return {
-                    status: RESOLUTION_STATUS.ANSWERED,
-                    locators,
-                    value: val,
-                    source: "element",
-                    meta: {dbAnswerKey, dbAnswerKeyIdx: undefined, containerIdx: null}
-                };	
-            }
             return {
-                status: RESOLUTION_STATUS.STRUCTURAL_FAILURE,
-                correction: {
-                    type: CORRECTION_TYPE.MARK_QUESTION_FAILED,
-                    questionId: question,
-                },
-            };
+                status: RESOLUTION_STATUS.SKIPPED,
+                reason: "Resume resolved during initialiation step.",
+            }
         }
 
         // ---------- NON-SPECIAL (ORDINARY) DB KEYS (General Fields) ----------
@@ -886,7 +621,7 @@ async function resolveAnswer(question, locators, matchedQuestion, labelEmbedding
             
             let address;
             // Request server via background.js
-            if (resolveAnswerValue(USER_DB, DB_KEY_MAP.USE_LLM_ADDRESS, false)) address = (await getNearestAddress(await getJobDetails()?.locations));
+            if (resolveAnswerValue(USER_DB, DB_KEY_MAP.USE_LLM_ADDRESS, false)) address = (await getNearestAddress(jobData?.locations));
             // Fallback to primary address
             if (address == null) address = resolveAnswerValue(USER_DB, DB_KEY_MAP.ADDRESSES)[Number(resolveAnswerValue(USER_DB, DB_KEY_MAP.PRIMARY_ADDRESS_CONTAINER_IDX))];
             // Map key (like state, city, etc.) from address to 'val'
@@ -907,7 +642,13 @@ async function resolveAnswer(question, locators, matchedQuestion, labelEmbedding
 
         // ========== RESUME ==========
         else if (hasNestedKey && dbAnswerKey.startsWith(DB_KEY_MAP.RESUME)) {
-            const val = await resolveResume();
+            const val = await resolveResume(
+                resolveAnswerValue(USER_DB, DB_KEY_MAP.RESUME)[Number(resolveAnswerValue(USER_DB, DB_KEY_MAP.PRIMARY_RESUME_CONTAINER_IDX))], 
+                jobData,
+                { 
+                    ignoreLLM: resolveAnswerValue(USER_DB, DB_KEY_MAP.USE_LLM_RESUME, false) 
+                }
+            );
             if (val != null) {
                 return {
                     status: RESOLUTION_STATUS.ANSWERED,
@@ -916,23 +657,6 @@ async function resolveAnswer(question, locators, matchedQuestion, labelEmbedding
                     source: "label",
                     meta: {dbAnswerKey, dbAnswerKeyIdx: undefined, containerIdx: null, matchedLabelCandidates: matchedLabelCandidates}
                 };	
-            }
-            // Proceed to Question Type based resolution
-        }
-
-        // ========== START DATE ==========
-        else if (hasNestedKey && dbAnswerKey.startsWith('today')) {
-
-            val = resolveTodaysDate(locators);
-
-            if (val != null) {
-                return {
-                    status: RESOLUTION_STATUS.ANSWERED,
-                    locators,
-                    value: val,
-                    source: "label",
-                    meta: {dbAnswerKey, dbAnswerKeyIdx: undefined, containerIdx: null, matchedLabelCandidates: matchedLabelCandidates}
-                };
             }
             // Proceed to Question Type based resolution
         }
@@ -992,15 +716,14 @@ async function resolveAnswer(question, locators, matchedQuestion, labelEmbedding
 
 
     // ----------- QUESTION TYPE MATCH (DIRECT SIGNAL) -----------
-	if ([FIELD_TYPE.TEXT, FIELD_TYPE.DATE].includes(question.type)) {
-		if ((question?.labelText ?? '').toLowerCase().includes('birth')) {
-			val = resolveBirthDate(locators);
-		} else {
-			val = resolveTodaysDate(locators);
-		}
-	}
     if (val == null && [FIELD_TYPE.FILE].includes(question.type)) {
-        val = await resolveResume({ignoreLLM: true}); // precision not needed for unknown file type.
+        val = await resolveResume(
+            resolveAnswerValue(USER_DB, DB_KEY_MAP.RESUME)[Number(resolveAnswerValue(USER_DB, DB_KEY_MAP.PRIMARY_RESUME_CONTAINER_IDX))], 
+            jobData,
+            { 
+                ignoreLLM: true // precision not needed for unknown file type.
+            }
+        );
     }
     if (
         question.type === 'checkbox'
@@ -1028,417 +751,352 @@ async function resolveAnswer(question, locators, matchedQuestion, labelEmbedding
     };
 }
 
-/* --------------------------------------------------------------------------
- * 📍 selectLocation
- * ------------------------------------------------------------------------ */
+
+
+/* -------------------------------------------------------------------------- */
+/* 📍 getLocationSearchQueries                                               */
+/* -------------------------------------------------------------------------- */
+
 async function getLocationSearchQueries() {
-    
+
     async function buildQueries() {
-        // Helper function to generate substrings for a single string
+
         function substringVariants(text) {
             const words = text.trim().split(/\s+/);
             const result = [];
-            for (let i = words.length; i >= 2; i--) result.push(words.slice(0, i).join(" "));
+
+            for (let i = words.length; i >= 2; i--) {
+                result.push(words.slice(0, i).join(" "));
+            }
+
             return result;
         }
 
-        // Fetch job details and extract locations
-        const jobDetails = await getJobDetails();  // Await the job details first
-        let locations = jobDetails?.locations;     // Now access locations safely
+        const jobDetails = await getJobDetails();
 
-        // Debugging: Log the locations to see what is being returned
-        // console.log("Fetched locations:", locations);
+        let locations = jobDetails?.locations;
 
-        // Ensure locations is always an array, even if null or undefined
         if (!Array.isArray(locations)) {
-            // console.error("Invalid data: locations should be an array or empty.");
-            locations = [];  // Set locations to an empty array for safety
+            locations = [];
         }
 
-        if (locations.length === 0) {
-            // console.warn("No locations provided. Returning empty query.");
-            return [];  // Return empty array if no locations are provided
-        }
-
-        // Initialize an empty array to store all queries
         const allQueries = [];
 
-        // Process each location and generate its substring variants
         for (const location of locations) {
-            // Ensure that location is a non-empty string
-            if (typeof location !== "string" || location.trim() === "") {
-                // console.warn(`Invalid location entry: "${location}". Skipping this entry.`);
+
+            if (typeof location !== "string" || !location.trim()) {
                 continue;
             }
 
-            // Generate substring variants for each valid location
-            const locationQueries = substringVariants(location);
-            // console.log(`Generated variants for "${location}":`, locationQueries); // Log the generated substrings
-            allQueries.push(...locationQueries);  // Append location-specific queries to the final result
+            allQueries.push(...substringVariants(location));
+
         }
 
-        return allQueries;  // Return the combined list of queries
+        return allQueries;
     }
 
     const tabState = await getTabState();
-    let searchQueries = tabState?.locationSearchQueries;
-    if (Array.isArray(searchQueries) && searchQueries?.length > 0) {
-        return searchQueries;
+
+    let queries = tabState?.leverLocationSearchQueries;
+
+    if (Array.isArray(queries) && queries.length > 0) {
+        return queries;
     }
 
-    // Logic to build optimized location search query.
-    searchQueries = await buildQueries();
-    const primaryAddress = resolveAnswerValue(USER_DB, DB_KEY_MAP.ADDRESSES)[Number(resolveAnswerValue(USER_DB, DB_KEY_MAP.PRIMARY_ADDRESS_CONTAINER_IDX))]
-    if (primaryAddress['state'] && primaryAddress['country']) searchQueries.push(primaryAddress['state'] + ', ' + primaryAddress['country']);
-    if (primaryAddress['city'] && primaryAddress['state']) searchQueries.push(primaryAddress['city'] + ', ' + primaryAddress['state']);
-    if (primaryAddress['city']) searchQueries.push(primaryAddress['city']);
-    notifyTabState({ locationSearchQueries: searchQueries }, { updateUI: false });
-    return searchQueries;
+    queries = await buildQueries();
 
+    const primaryAddress =
+        resolveAnswerValue(USER_DB, DB_KEY_MAP.ADDRESSES)[
+            Number(resolveAnswerValue(USER_DB, DB_KEY_MAP.PRIMARY_ADDRESS_CONTAINER_IDX))
+        ];
+
+    if (primaryAddress?.state && primaryAddress?.country)
+        queries.push(`${primaryAddress.state}, ${primaryAddress.country}`);
+
+    if (primaryAddress?.city && primaryAddress?.state)
+        queries.push(`${primaryAddress.city}, ${primaryAddress.state}`);
+
+    if (primaryAddress?.city)
+        queries.push(primaryAddress.city);
+
+    notifyTabState(
+        { leverLocationSearchQueries: queries },
+        { updateUI: false }
+    );
+
+    return queries;
 }
 
-export async function selectLocation({threshold = 80, queries = null, selectAtLeastOne = true, layers = 'locality,localadmin,borough', apiKey = 'ge-39f1178289d5d0c5' } = {}) {
+/* -------------------------------------------------------------------------- */
+/* 📍 selectLocation                                                         */
+/* -------------------------------------------------------------------------- */
 
-    const input = el(`[name="job_application[location]"]`);
-    if (!(input instanceof HTMLInputElement)) return;
+export async function selectLocation({threshold = 75, queries = null, selectAtLeastOne = true} = {}) {
 
+    const root = document.querySelector('[data-qa="structured-contact-location-question"]');
+    if (!root) return null;
+
+    const input = root.querySelector('#location-input');
+    if (!(input instanceof HTMLInputElement)) return null;
 
     queries = queries ?? await getLocationSearchQueries();
-    if (!(Array.isArray(queries) && queries.length > 0)) queries = ["Remote"]
 
-    const autoComplete = input.closest('auto-complete');
-    if (!autoComplete) return;
+    if (!Array.isArray(queries) || !queries.length)
+        queries = ["Remote"];
 
-    const baseUrl =
-        autoComplete.dataset.baseUrl ||
-        'https://api-geocode-earth-proxy.greenhouse.io/';
-
-    const endpoint = `${baseUrl}v1/autocomplete`;
-
-    let bestOverall = null;
-
-    /* -------------------------------------------------- */
-    /* Helpers                                            */
-    /* -------------------------------------------------- */
+    /* ------------------------------------------------------------------ */
+    /* Helpers                                                            */
+    /* ------------------------------------------------------------------ */
 
     const sleep = ms => new Promise(r => setTimeout(r, ms));
+    const nativeSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set;
 
-    async function fetchFeatures(text) {
+    /* ------------------------------------------------------------------ */
+    /* Extract hCaptcha token                                             */
+    /* ------------------------------------------------------------------ */
+    async function getHCaptchaToken() {
+        return new Promise((resolve, reject) => {
+            chrome.runtime.sendMessage(
+                { action: "getLeverLocationToken" },
+                (response) => {
+                    if (chrome.runtime.lastError) {
+                        reject(chrome.runtime.lastError);
+                        return;
+                    }
+                    resolve(response?.token || null);
+                }
+            );
+        });
+    }
+
+
+    const hcaptchaToken = await getHCaptchaToken();
+
+    if (!hcaptchaToken) {
+        console.warn("[Lever] hCaptcha token missing. Received:", hcaptchaToken);
+        return null;
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* Lever API fetch                                                    */
+    /* ------------------------------------------------------------------ */
+
+    async function fetchLocations(query) {
+
         const url =
-            `${endpoint}?api_key=${apiKey}` +
-            `&layers=${encodeURIComponent(layers)}` +
-            `&text=${encodeURIComponent(text)}`;
+            `https://jobs.lever.co/searchLocations` +
+            `?text=${encodeURIComponent(query)}` +
+            `&hcaptchaResponse=${encodeURIComponent(hcaptchaToken)}`;
 
-        const res = await fetch(url);
-        if (!res.ok) throw new Error('Pelias fetch failed');
-        const json = await res.json();
-        return json?.features || [];
+        const res =
+            await fetch(url, {
+                method: "GET",
+                credentials: "include"
+            });
+
+        if (!res.ok)
+            return [];
+
+        return await res.json();
     }
 
-    function rank(query, features) {
-        return features
-            .map(f => ({
-                feature: f,
-                label: f.properties?.label || '',
-                score: similarity(query, f.properties?.label || '')
-            }))
-            .filter(r => r.label)
-            .sort((a, b) => b.score - a.score);
+
+    /* ------------------------------------------------------------------ */
+    /* Dispatch real typing events                                        */
+    /* ------------------------------------------------------------------ */
+
+    function dispatchTypingEvents(el) {
+
+        el.dispatchEvent(
+            new InputEvent("input", {
+                bubbles: true,
+                composed: true,
+                inputType: "insertText"
+            })
+        );
+
+        el.dispatchEvent(
+            new Event("change", {
+                bubbles: true
+            })
+        );
+
+        el.dispatchEvent(
+            new KeyboardEvent("keydown", {
+                bubbles: true,
+                key: "a"
+            })
+        );
+
+        el.dispatchEvent(
+            new KeyboardEvent("keyup", {
+                bubbles: true,
+                key: "a"
+            })
+        );
     }
 
-    function dispatchRealClick(el) {
+
+    async function typeQuery(text) {
+
+        input.focus();
+
+        nativeSetter.call(input, "");
+
+        dispatchTypingEvents(input);
+
+        await sleep(100);
+
+        nativeSetter.call(input, text);
+
+        dispatchTypingEvents(input);
+    }
+
+
+    /* ------------------------------------------------------------------ */
+    /* Wait for Lever dropdown options                                    */
+    /* ------------------------------------------------------------------ */
+
+    async function waitForDropdown(timeout = 6000) {
+
+        const start = Date.now();
+
+        while (Date.now() - start < timeout) {
+
+            const options =
+                root.querySelectorAll('.dropdown-container [id^="location-"]');
+
+            if (options.length)
+                return Array.from(options);
+
+            await sleep(100);
+        }
+
+        return [];
+    }
+
+
+    /* ------------------------------------------------------------------ */
+    /* Real click (required by Lever React state)                         */
+    /* ------------------------------------------------------------------ */
+
+    function realClick(el) {
+
         const rect = el.getBoundingClientRect();
+
         const opts = {
             bubbles: true,
             cancelable: true,
             clientX: rect.left + rect.width / 2,
-            clientY: rect.top + rect.height / 2,
-            pointerType: 'mouse',
-            isPrimary: true
+            clientY: rect.top + rect.height / 2
         };
 
-        el.dispatchEvent(new PointerEvent('pointerdown', opts));
-        el.dispatchEvent(new MouseEvent('mousedown', opts));
-        el.dispatchEvent(new PointerEvent('pointerup', opts));
-        el.dispatchEvent(new MouseEvent('mouseup', opts));
-        el.dispatchEvent(new MouseEvent('click', opts));
+        el.dispatchEvent(new PointerEvent("pointerdown", opts));
+        el.dispatchEvent(new MouseEvent("mousedown", opts));
+        el.dispatchEvent(new PointerEvent("pointerup", opts));
+        el.dispatchEvent(new MouseEvent("mouseup", opts));
+        el.dispatchEvent(new MouseEvent("click", opts));
     }
 
-    async function commitByClick(label) {
-        input.focus();
-        input.value = label;
-        input.dispatchEvent(new InputEvent('input', { bubbles: true }));
 
-        await sleep(1250); // allow dropdown to render
+    /* ------------------------------------------------------------------ */
+    /* Similarity scoring                                                 */
+    /* ------------------------------------------------------------------ */
 
-        const options = Array.from(
-            autoComplete.querySelectorAll('li[role="option"]')
-        );
+    function similarity(a, b) {
 
-        // const target = options.find(
-        //     li => li.textContent.trim() === label
-        // );
-        const target = options[0];
+        a = a.toLowerCase();
+        b = b.toLowerCase();
 
-        if (!target) {
-            throw new Error('Option not found in dropdown');
-        }
+        if (b.includes(a))
+            return 100;
 
-        dispatchRealClick(target);
-        await sleep(100);
+        let matches = 0;
 
-        return true;
+        for (const ch of a)
+            if (b.includes(ch))
+                matches++;
+
+        return matches / a.length * 100;
     }
 
-    /* -------------------------------------------------- */
-    /* Main search loop                                   */
-    /* -------------------------------------------------- */
-    for (const q of queries.filter(Boolean)) {
-        let features;
+
+    /* ------------------------------------------------------------------ */
+    /* Main search loop                                                   */
+    /* ------------------------------------------------------------------ */
+
+    let bestOverall = null;
+
+    for (const query of queries) {
+
+        let apiResults;
+
         try {
-            features = await fetchFeatures(q);
+            apiResults = await fetchLocations(query);
         } catch {
             continue;
         }
 
-        if (!features.length) continue;
+        if (!apiResults.length)
+            continue;
 
-        const ranked = rank(q, features);
-        if (!ranked.length) continue;
+        await typeQuery(query);
+
+        const options = await waitForDropdown();
+
+        if (!options.length) continue;
+
+
+        const ranked =
+            options.map(el => ({
+                el,
+                label: el.textContent.trim(),
+                score: similarity(query, el.textContent.trim())
+            })).sort((a, b) => b.score - a.score);
+
 
         const best = ranked[0];
 
-        if (!bestOverall || best.score > bestOverall.score) {
+        if (!best) 
+            continue;
+
+        if (!bestOverall || best.score > bestOverall.score)
             bestOverall = best;
-        }
 
         if (best.score >= threshold) {
-            await commitByClick(best.label);
-            return { label: best.label, forced: false };
+            realClick(best.el);
+            await sleep(200);
+            return {label: best.label, forced: false};
         }
     }
 
-    /* -------------------------------------------------- */
-    /* Fallback logic                                     */
-    /* -------------------------------------------------- */
 
-    if (selectAtLeastOne) {
-        if (bestOverall) {
-            await commitByClick(bestOverall.label);
-            return { label: bestOverall.label, forced: true };
-        }
+    /* ------------------------------------------------------------------ */
+    /* Fallback                                                           */
+    /* ------------------------------------------------------------------ */
 
-        const features = await fetchFeatures('');
-        if (features.length) {
-            const label = features[0].properties?.label;
-            if (label) {
-                await commitByClick(label);
-                return { label, forced: true };
-            }
-        }
-    }
+    if (selectAtLeastOne && bestOverall) {
 
-    return null;
-}
+        realClick(bestOverall.el);
 
-/* --------------------------------------------------------------------------
- * 🎓 resolveAndSelectBestOption
- * ------------------------------------------------------------------------ */
-/**
- * Robust similarity-based option resolution for async Select2-style endpoints.
- * Designed for automation-safe form filling (Workday-style UIs).
- *
- * -----------------------------------------------------------------------------------------
- * FEATURES
- * -----------------------------------------------------------------------------------------
- * • Multi-query search with early exit on threshold hit
- * • Similarity scoring using deterministic helper (similarity)
- * • Best-match preservation across failed queries
- * • Threshold-based acceptance
- * • Optional forced selection (selectAtLeastOne)
- * • Safe fallback to empty search when no results are found
- * • Updates hidden input value + visible Select2 label
- *
- * -----------------------------------------------------------------------------------------
- * PARAMETERS
- * -----------------------------------------------------------------------------------------
- * @param {HTMLInputElement} locator
- *   → The hidden Select2-backed input element
- *
- * @param {string[]} queries
- *   → Ordered list of candidate query strings (priority order)
- *
- * @param {Object} options
- * @param {number} [options.threshold=80]
- *   → Minimum similarity score required to accept a match
- *
- * @param {boolean} [options.selectAtLeastOne=false]
- *   → If true, guarantees a selection even when threshold is not met
- *
- * @param {number} [options.page=1]
- *   → Pagination page (if supported by API)
- *
- * -----------------------------------------------------------------------------------------
- * RETURNS
- * -----------------------------------------------------------------------------------------
- * @returns {Promise<{
- *   id: string | number,
- *   text: string,
- *   score: number,
- *   forced: boolean
- * } | null>}
- *
- * =========================================================================================
- */
-// ---------- USAGE ----------
-// await resolveAndSelectBestOption(
-//     document.querySelector(
-//         'input[name="job_application[educations][][school_name_id]"]'
-//     ),
-//     [
-//         'University of Central Florida',
-//         'UCF',
-//         'Central Florida University'
-//     ],
-//     {
-//         threshold: 82,
-//         selectAtLeastOne: true
-//     }
-// );
-async function selectSchoolName(locator, queries = [], {threshold = 80, selectAtLeastOne = false, page = 1} = {}) {
-    
-    if (!(locator instanceof HTMLInputElement)) {
-        throw new Error('resolveAndSelectBestOption(): hiddenInput must be an HTMLInputElement');
-    }
-
-    const dataUrl = locator.getAttribute('data-url');
-    if (!dataUrl) {
-        console.warn('⚠️ No data-url found on hidden input');
-        return null;
-    }
-
-    // Normalize queries
-    const searchQueries = Array.isArray(queries)
-        ? queries.filter(q => typeof q === 'string' && q.trim())
-        : [];
-
-    let bestOverall = null; // { id, text, score }
-
-    /**
-     * ---------------------------------------------
-     * 🔍 Fetch options for a given search term
-     * ---------------------------------------------
-     */
-    async function fetchOptions(term) {
-        const url =
-            term != null
-                ? `${dataUrl}?term=${encodeURIComponent(term)}&page=${page}`
-                : `${dataUrl}?page=${page}`;
-
-        const res = await fetch(url);
-        if (!res.ok) throw new Error(`Fetch failed (${res.status})`);
-        const data = await res.json();
-        return Array.isArray(data?.items) ? data.items : [];
-    }
-
-    /**
-     * ---------------------------------------------
-     * 🧠 Score options using similarity()
-     * ---------------------------------------------
-     */
-    function scoreOptions(query, items) {
-        return items
-            .map(item => {
-                if (!item?.text) return null;
-                return {
-                    id: item.id,
-                    text: item.text,
-                    score: similarity(query, item.text)
-                };
-            })
-            .filter(Boolean)
-            .sort((a, b) => b.score - a.score);
-    }
-
-    /**
-     * ---------------------------------------------
-     * 🎯 Apply selection to DOM
-     * ---------------------------------------------
-     */
-    function applySelection(option, forced = false) {
-        locator.value = option.id;
-
-        const field = locator.closest('.field');
-        if (field) {
-            const chosen = field.querySelector('.select2-chosen');
-            if (chosen) chosen.textContent = option.text;
-        }
+        await sleep(200);
 
         return {
-            ...option,
-            forced
+
+            label: bestOverall.label,
+
+            forced: true
         };
     }
 
-    // =====================================================================================
-    // 🔁 MAIN SEARCH LOOP (priority-based)
-    // =====================================================================================
-    for (const query of searchQueries) {
-        let items;
-        try {
-            items = await fetchOptions(query);
-        } catch (err) {
-            console.warn('⚠️ Fetch failed for query:', query, err);
-            continue;
-        }
-
-        if (!items.length) continue;
-
-        const ranked = scoreOptions(query, items);
-        if (!ranked.length) continue;
-
-        const top = ranked[0];
-
-        // Preserve best overall match
-        if (!bestOverall || top.score > bestOverall.score) {
-            bestOverall = top;
-        }
-
-        // Early exit if threshold satisfied
-        if (top.score >= threshold) {
-            return applySelection(top, false);
-        }
-    }
-
-    // =====================================================================================
-    // 🧯 FALLBACK LOGIC
-    // =====================================================================================
-    if (selectAtLeastOne) {
-
-        // 1️⃣ Use best overall match (even below threshold)
-        if (bestOverall) {
-            return applySelection(bestOverall, true);
-        }
-
-        // 2️⃣ No queries or no results → empty search fallback
-        try {
-            const items = await fetchOptions(null);
-            if (items.length) {
-                const fallback = {
-                    id: items[0].id,
-                    text: items[0].text,
-                    score: 0
-                };
-                return applySelection(fallback, true);
-            }
-        } catch (err) {
-            console.warn('⚠️ Fallback empty search failed', err);
-        }
-    }
-
-    // ❌ Nothing selected
     return null;
 }
+
+
+
+
+
+
 
 /* --------------------------------------------------------------------------
  * 🚀 formManager(question, locators, val)
@@ -1475,71 +1133,40 @@ async function formManager(
     /* ------------------------------------------
     * 🧫 Handle Exceptional Known Questions
     * ------------------------------------------ */
-    const knownQuestionLocationCity = resolveValidElements(locators, [FIELD_VALIDATOR.text, (el) => el.getAttribute('name') == 'job_application[location]'], 'AND');
-    if (knownQuestionLocationCity.length) {
-        return async () => {  /** Resolved right before Click - not during parallel execution because dropdown, etc unsets the selected location  */
-            let response;
+    const knownQuestionCurrentLocation = resolveValidElements(
+        locators,
+        [
+            FIELD_VALIDATOR.text,
+            el =>
+                el.name === "location" ||
+                el.dataset?.qa === "location-input"
+        ],
+        "AND"
+    );
+    if (knownQuestionCurrentLocation.length) {
+        return async () => {
             try {
-                // function throws error / or / returns null or {label: string, forced: bool}
-                response = await selectLocation({ threshold: 60, queries: val, selectAtLeastOne: (question.required) ? true : false })  
+                const response = await selectLocation({threshold: 60, queries: val, selectAtLeastOne: question.required});
+                if (!response && question.required) {
+                    return {
+                        status: EXECUTION_STATUS.ERROR,
+                        reason: "Failed to select location"
+                    };
+                }
+                return {
+                    status: EXECUTION_STATUS.OK
+                };
             }
             catch (err) {
                 return {
                     status: EXECUTION_STATUS.ERROR,
-                    reason: `Failed to execute 'selectLocation' function. Tried values: ${val}`,
+                    reason: "Location selection failed",
                     error: err.message
-                };              
-            }
-            if (response == null && question.required) {
-                return {
-                    status: EXECUTION_STATUS.ERROR,
-                    reason: `Failed to select location. Tried values: ${val}`,
-                    error: `Failed to select location.`
                 };
             }
-            return { status: EXECUTION_STATUS.OK };
         };
     }
 
-    const knownQuestionSchoolName = resolveValidElements(locators, [(el) => el.getAttribute('name') === "job_application[educations][][school_name_id]" || el.id?.startsWith('education_school_name_')], 'AND');
-    if (knownQuestionSchoolName.length) {
-        let normalizedAnswers;
-        try {
-            normalizedAnswers = normalizeDropdownAnswers(val);
-            normalizedAnswers.push('Other')
-        } catch (err) {
-            if (question.required)
-            return async () => { 
-                return {
-                    status: EXECUTION_STATUS.ERROR,
-                    reason: `Failed to normalize value: ${val}`,
-                    error: err.message
-                };
-            };
-        }
-        return async () => { 
-            let response;
-            try {
-                response = await selectSchoolName(knownQuestionSchoolName[0], normalizedAnswers, { threshold: 60,  selectAtLeastOne: (question.required) ? true : false });
-            }
-            catch (err) {
-                return {
-                    status: EXECUTION_STATUS.ERROR,
-                    reason: `Failed to execute 'selectSchoolName' function. Tried values: ${normalizedAnswers}`,
-                    error: err.message
-                }; 
-            }
-            if (response == null && question.required) {
-                return {
-                    status: EXECUTION_STATUS.ERROR,
-                    reason: `Failed to select school name. Tried values: ${normalizedAnswers}`,
-                    error: `Failed to select school name.`
-                };
-            }
-            return { status: EXECUTION_STATUS.OK };
-
-        };
-    }
 
     /* ------------------------------------------
     * 🧫 Handle General Questions
@@ -1576,40 +1203,6 @@ async function formManager(
                         error: undefined,
                     };
                 };
-            }
-
-            if (question?.label?.textContent.includes('salary')) {
-                console.log("SALARY QUESTION... LEFT-ATTEMPT:", payload.remainingAttempts)
-            }
-            if (
-                payload.remainingAttempts === 1 
-                && (
-                    question?.label?.textContent.includes('salary')
-                    || question?.label?.textContent.includes('compensation')
-                )
-            ) {
-                console.log("SALARY QUESTION IN INIT VAL...", normalizedValue, ' || Type:', typeof normalizedValue)
-                // Type: Array[] of strings <- contains extracted number in their base form.
-                const normalizedNumberStrings = normalizedValue.match(/\d[\d,]*/g)?.map(n => n.replace(/,/g, '')) ?? [];
-                if (normalizedNumberStrings.length) { // numbers exist in answer
-                    normalizedValue = normalizedNumberStrings[0]
-                } else { // numbers does not exist in answer
-                    const salary = resolveAnswerValue(USER_DB, DB_KEY_MAP.SALARY_EXPECTATIONS, {min: 80000, max: 80000})
-                    const min = Number(salary.min);
-                    const max = Number(salary.max);
-                    if (Number.isNaN(min) || Number.isNaN(max)) {
-                        if (question.required) {
-                            normalizedValue = "80000";
-                        } else {
-                            return async () => {  return { status: EXECUTION_STATUS.OK }; };
-                        }
-                    } else if (min === max) {
-                        normalizedValue = String(min);
-                    } else {
-                        normalizedValue = String(Math.floor((min + max) / 2));
-                    }
-                }
-                console.log("SALARY QUESTION IN FINAL VAL...", normalizedValue, " || Type: ", typeof normalizedValue)
             }
 
             let dispatchFocus = true;
@@ -1842,7 +1435,7 @@ async function formManager(
                 threshold = 0  // Select the best option (ensures atleast one selection)
             }
             
-            const blacklist = ["Please select", "Select One", "--"];
+            const blacklist = ["Select...", "Please select", "Select One", "--"];
 
             return async () => {
                 const res = await selectField(
@@ -1870,7 +1463,7 @@ async function formManager(
 
             return async () => {
 
-                const res = await uploadFiles(locators, val, {filenameSelector: `[id="resume_filename"], [id="cover_letter_filename"]`, allowMultiple: false});
+                const res = await uploadFiles(locators, val, {filenameSelector: '.application-form .application-question.resume .filename', progressSelector: `.application-form .application-question.resume .resume-upload-success[style]:not([style='']):not([style='display: inline;'])`, allowMultiple: false});
 
                 if (!res.success) {
                     return {
@@ -1898,40 +1491,8 @@ async function formManager(
 async function applyCorrection(correction) {
 
     switch (correction.type) {
-        
-        case CORRECTION_TYPE.REMOVE_EDU_CONTAINER: {
-
-			// `failedEducationDatabaseIdx`: Persist across all iterations.
-			failedEducationDatabaseIdx.add(correction.dbAnswerKeyIdx); // Skip this database key in upcoming iterations.
-
-            if (!failedEducationContainers.has(correction.containerIdx)) { // One time deletion per iteration.
-                failedEducationContainers.add(correction.containerIdx); // Resets every iteration.
-                await removeContainerSimple({
-                    removeButtonSelector: SELECTORS.APPLICATION_PAGE.educationDeleteButtons,
-                    index: correction.containerIdx - [...failedEducationContainers].filter(i => i < correction.containerIdx).length,
-                });
-            }
-            break;
-        }
-
-        case CORRECTION_TYPE.REMOVE_WORK_CONTAINER: {
-
-            // `failedWorkExperienceDatabaseIdx`: Persist across all iterations.
-			failedWorkExperienceDatabaseIdx.add(correction.dbAnswerKeyIdx); // Skip this database key in upcoming iterations.
-
-            if (!failedWorkExpContainers.has(correction.containerIdx)) { // One time deletion per iteration.
-                failedWorkExpContainers.add(correction.containerIdx); // Resets every iteration.
-                await removeContainerSimple({
-                    removeButtonSelector: SELECTORS.APPLICATION_PAGE.workExperienceDeleteButtons,
-                    index: correction.containerIdx - [...failedWorkExpContainers].filter(i => i < correction.containerIdx).length,
-                });
-            }
-            break;
-        }
-        
 
         case CORRECTION_TYPE.MARK_QUESTION_FAILED: {
-
             console.warn("Marking question as failed:", correction.questionId);
             break;
         }
@@ -1950,26 +1511,6 @@ export function isQuestionSet(question) {
 
     const locators = FIELD_VALIDATOR.hasOwnProperty(question.type) ? question.fields.filter(FIELD_VALIDATOR[question.type]) : question.fields;
     if (!locators.length) return false;
-
-    /* ------------------------------------------
-    * 🧫 Handle Exceptional Known Questions
-    * ------------------------------------------ */ 
-    const knownQuestionLocationCity = resolveValidElements(locators, [FIELD_VALIDATOR.text, (el) => el.getAttribute('name') == 'job_application[location]'], 'AND');
-    if (knownQuestionLocationCity.length) {
-        const resolveInputSelect = normalizeResolver(knownQuestionLocationCity, { mode: 'single' });
-        const inputEl = resolveInputSelect();
-        return Boolean(inputEl?.closest('div.field')?.querySelector(`[id="job_application_location"]`)?.value);
-    }
-    
-    /* ------------------------------------------
-    * 🧫 Handle Exceptional Known Questions
-    * ------------------------------------------ */ 
-    const knownQuestionSchoolName = resolveValidElements(locators, [(el) => el.getAttribute('name') === "job_application[educations][][school_name_id]" || el.id?.startsWith('education_school_name_')], 'AND');
-    if (knownQuestionSchoolName.length) {
-        const resolveInputSelect = normalizeResolver(knownQuestionSchoolName, { mode: 'single' });
-        const inputSelect = resolveInputSelect();
-        return !!inputSelect.value;
-    }
     
     /* ------------------------------------------
     * 🧫 Handle General Questions
@@ -2013,6 +1554,10 @@ export function isQuestionSet(question) {
             return !!select.value;
         }
 
+        case 'file': {
+            return Boolean(document.querySelector(`.resume-upload-success`)?.style.display.startsWith('inline'))
+        }
+
         default:
             return false;
     }
@@ -2026,14 +1571,6 @@ async function getOptions(
 	locators, 
 	questionType // Can be removed later by creating utility to auto detect from locators (making more modular), but currently the caller has access to it so not need.
 ) {
-
-    /* ------------------------------------------
-    * 🧫 Handle Exceptional Known Questions
-    * ------------------------------------------ */ 
-    const knownQuestionSchoolName = resolveValidElements(locators, [(el) => el.getAttribute('name') === "job_application[educations][][school_name_id]" || el.id?.startsWith('education_school_name_')], 'AND');
-    if (knownQuestionSchoolName.length) {
-        return [];
-    }
 
     /* ------------------------------------------
     * 🧫 Handle General Questions
@@ -2053,7 +1590,7 @@ async function getOptions(
 			break;
 		}
 		case FIELD_TYPE.DROPDOWN: {
-			// FIELD_TYPE.DROPDOWN does not exists in Greenhouse
+			// FIELD_TYPE.DROPDOWN does not exists in Lever
 			break;
 		}
 		default: {
@@ -2109,63 +1646,5 @@ export const resolveQuestions = async (
             initNewIteration,
         }
     );
-};
-
-
-/* --------------------------------------------------------------------------
- * 🧠 fetchGreenhouseVerificationPasscode()
- * ------------------------------------------------------------------------ */
-export async function fetchGreenhouseVerificationPasscode() {
-    console.group('[Greenhouse] fetchVerificationPasscode');
-
-    let attempt = 0;
-    const maxAttempts = 3;
-    let waitTime = 4;
-
-    while (attempt < maxAttempts) {
-        attempt++;
-        console.log(`[Greenhouse] Checking Gmail (Attempt ${attempt}/${maxAttempts})...`);
-
-        const response = await chrome.runtime.sendMessage({
-            action: 'fetchRecentVerificationPasscode',
-            query: '(from:greenhouse) and is:unread ',
-            topKSearch: 2,
-            maxAgeMinutes: 1,
-        });
-
-        if (response?.success && response.passcode) {
-            console.log('[Greenhouse] ✅ Passcode found:', response.passcode);
-            console.groupEnd();
-            return response.passcode;
-        }
-
-        console.log(`[Greenhouse] No passcode yet — retrying in ${waitTime}s...`);
-        await sleep(waitTime);
-        waitTime = Math.min(waitTime * 2, 20);
-    }
-
-    console.warn('[Greenhouse] Verification passcode not found.');
-    console.groupEnd();
-    return null;
 }
-
-export async function resolveSecurityCodeQuestion(passCode) {
-
-    if (!passCode) return false;
-
-    // Fill Passcode
-    const res = await fillInput(
-        el(SELECTORS[LEVER_PAGES.APPLICATION_PAGE].securityCodeInput), 
-        passCode, 
-        {dispatchFocus: true}
-    );
-
-    // Return result
-    if (!res?.success) {
-        return false;
-    }
-    return true;
-}
-
-
 

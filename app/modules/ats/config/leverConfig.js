@@ -24,12 +24,15 @@ export const SELECTORS = {
     [LEVER_PAGES.APPLICATION_PAGE] : {
         submitButton: `form #btn-submit`,
     },
-    // [LEVER_PAGES.CONFIRMATION_PAGE] : {
-    //     confirmationPageIdentifier: `[id="submission_received"], [id="application_confirmation"]`
-    // },
-    // [LEVER_PAGES.JOB_SEARCH_PAGE] : {
-    //     jobSearchPageIdentifier: `.filters #keyword-filter`
-    // }
+    [LEVER_PAGES.CONFIRMATION_PAGE] : {
+        confirmationPageIdentifier: `[data-qa="msg-submit-success"]`
+    },
+    [LEVER_PAGES.JOB_SEARCH_PAGE] : {
+        jobSearchPageIdentifier: `.list-page`
+    },
+    [LEVER_PAGES.CLOUDFLARE_ERROR_PAGE] : {
+        cloudflareErrorPageIdentifier: `#cf-error-details`
+    }
 };
 
 
@@ -37,7 +40,7 @@ export const SELECTORS = {
  * 💎 KNOWN ELEMENTS ⚙️ ALREADY KNOWN ELEMENTS
  * ------------------------------------------------------------------------ */
 /**
- * Generate dynamic QUESTIONS object for Greenhouse forms
+ * Generate dynamic QUESTIONS object for Lever forms
  * 
  * Each object typically contains:
 *   • `type` {string}                → Expected field type (e.g., 'multiselect', 'radio')
@@ -50,299 +53,211 @@ export const SELECTORS = {
 *   • `notes` {string}               → Optional description or notes for reference
  */
 export const KNOWN_QUESTIONS = {
-    FIRST_NAME: {
-        type: 'text',
-        dbAnswerKey: DB_KEY_MAP.FIRST_NAME,
-        value: undefined,
-        elementValidator: (el) => el.getAttribute('id') == 'first_name' || el.getAttribute('name') == 'job_application[first_name]',
-        action: KNOWN_QUESTION_ACTION.RESOLVE,
-        notes: 'First Name*'
-    },
-    LAST_NAME: {
-        type: 'text',
-        dbAnswerKey: DB_KEY_MAP.LAST_NAME,
-        value: undefined,
-        elementValidator: (el) => el.getAttribute('id') == 'last_name' || el.getAttribute('name') == 'job_application[last_name]',
-        action: KNOWN_QUESTION_ACTION.RESOLVE,
-        notes: 'Last Name*'
-    },
-    EMAIL: {
-        type: 'text',
-        dbAnswerKey: DB_KEY_MAP.EMAIL,
-        value: undefined,
-        elementValidator: (el) => el.getAttribute('id') == 'email' || el.getAttribute('name') == 'job_application[email]',
-        action: KNOWN_QUESTION_ACTION.RESOLVE,
-        notes: 'Email Address*'
-    },
-    PHONE_NUMBER: {
-        type: 'text',
-        dbAnswerKey: DB_KEY_MAP.PHONE_NUMBER,
-        value: undefined,
-        elementValidator: (el) => el.getAttribute('id') == 'phone' || el.getAttribute('name') == 'job_application[phone]',                    
-        action: KNOWN_QUESTION_ACTION.RESOLVE,
-        notes: 'Phone Number*'
-    },
-    LOCATION_CITY: {
-        type: 'text',
-        dbAnswerKey: DB_KEY_MAP.CITY,
-        value: undefined,
-        elementValidator: (el) => el.getAttribute('name') == 'job_application[location]',                    
-        action: KNOWN_QUESTION_ACTION.RESOLVE,
-        notes: 'Location (city)*'
-    },
-    DUMMY_HIDDEN: {
-        type: 'text',
-        dbAnswerKey: undefined,
-        value: undefined,
-        elementValidator: (el) => el.getAttribute('id') == 'dev-field-1' || el.getAttribute('name') == 'dev_field_1',                    
-        action: KNOWN_QUESTION_ACTION.FORCE_SKIP,
-        notes: 'Dummy*'
-    },
     RESUME_UPLOAD: {
         type: 'file',
         dbAnswerKey: DB_KEY_MAP.RESUME_PATH,
         value: undefined,
-        elementValidator: (el) => { return el == document.querySelector(SELECTORS.APPLICATION_PAGE.resumeInput)},
-        action: KNOWN_QUESTION_ACTION.RESOLVE,
-        notes: 'Resume*'
+        elementValidator: (el) => el.getAttribute('name') === 'resume',
+        action: KNOWN_QUESTION_ACTION.FORCE_SKIP,
+        notes: 'Resume/CV*'
     },
-    COVER_LETTER_UPLOAD: {
-        type: 'file',
-        dbAnswerKey: DB_KEY_MAP.RESUME_PATH,
+    FULL_NAME: {
+        type: FIELD_TYPE.TEXT,
+        dbAnswerKey: undefined,
+        value: db => {
+            const first = (db[DB_KEY_MAP.FIRST_NAME] || "").trim();
+            const last = (db[DB_KEY_MAP.LAST_NAME] || "").trim();
+            if (!first && !last) return null;
+            if (!first) return last;
+            if (!last) return first;
+            return `${first} ${last}`;
+        },
+        elementValidator: (el) => el.getAttribute('name') == 'name',
+        action: KNOWN_QUESTION_ACTION.RESOLVE,
+        notes: 'Full Name or Signature*'
+    },
+    PRONOUNCE: {
+        type: FIELD_TYPE.CHECKBOX,
+        dbAnswerKey: undefined,
+        value: db => {
+            const atsOptionalLabels = ["Use name only"];
+            const dbAnswer = resolveAnswerValue(db, DB_KEY_MAP.GENDER, undefined);
+
+            const result = [];
+            if (dbAnswer === "Male") result.push("He/him");
+            else if (dbAnswer === "Female") result.push("She/her");
+            else if (dbAnswer === "Non-Binary") result.push("They/them")
+
+            if (dbAnswer == null || dbAnswer === "Decline to state") {
+                result.push(...atsOptionalLabels);
+            }
+            
+            // Remove duplicates
+            return Array.from(new Set(result));
+        },
+        elementValidator: (el) => el.getAttribute('name') === 'pronouns',
+        action: KNOWN_QUESTION_ACTION.SKIP_IF_DATA_UNAVAILABLE,
+        notes: 'Full Name or Signature*'
+    },
+    EMAIL: {
+        type: [FIELD_TYPE.EMAIL, FIELD_TYPE.TEXT],
+        dbAnswerKey: DB_KEY_MAP.EMAIL,
         value: undefined,
-        elementValidator: (el) => { return el == document.querySelector(SELECTORS.APPLICATION_PAGE.coverLetterInput)},
-        action: KNOWN_QUESTION_ACTION.SKIP,
-        notes: 'Cover Letter*'
-    },
-    EDUCATION_SCHOOL: {
-        type: [FIELD_TYPE.TEXT, FIELD_TYPE.SELECT, FIELD_TYPE.HIDDEN],
-        dbAnswerKey: DB_KEY_MAP.EDUCATION_SCHOOL,
-        value: db => resolveAnswerValue(db, getKey(DB_KEY_MAP.EDUCATION_SCHOOL), undefined),
-        elementValidator: (el) => el.getAttribute('name') === "job_application[educations][][school_name_id]" || el.id?.startsWith('education_school_name_'),
+        elementValidator: (el) => el.getAttribute('name') === 'email',
         action: KNOWN_QUESTION_ACTION.RESOLVE,
-        notes: 'School*'
+        notes: 'Email*'
     },
-    EDUCATION_DEGREE: {
-        type: [FIELD_TYPE.TEXT, FIELD_TYPE.SELECT, FIELD_TYPE.HIDDEN],
-        dbAnswerKey: DB_KEY_MAP.EDUCATION_DEGREE,
-        value: db => resolveAnswerValue(db, getKey(DB_KEY_MAP.EDUCATION_DEGREE), []),
-        elementValidator: (el) => el.getAttribute('name') === "job_application[educations][][degree_id]" || el.id?.startsWith('education_degree_'),
-        action: KNOWN_QUESTION_ACTION.RESOLVE,
-        notes: 'Degree*'
-    },
-    EDUCATION_MAJOR: {
-        type: [FIELD_TYPE.TEXT, FIELD_TYPE.SELECT, FIELD_TYPE.HIDDEN],
-        dbAnswerKey: DB_KEY_MAP.EDUCATION_MAJOR,
-        value: db => resolveAnswerValue(db, getKey(DB_KEY_MAP.EDUCATION_MAJOR), []),
-        elementValidator: (el) => el.getAttribute('name') === "job_application[educations][][discipline_id]" || el.id?.startsWith('education_discipline_'),
-        action: KNOWN_QUESTION_ACTION.RESOLVE,
-        notes: 'Discipline*'
-    },
-    EDUCATION_START_DATE_MONTH: {
+    PHONE_NUMBER: {
         type: FIELD_TYPE.TEXT,
-        dbAnswerKey: DB_KEY_MAP.EDUCATION_START_DATE,
-        value: db => getMonth( resolveAnswerValue( db, getKey(DB_KEY_MAP.EDUCATION_START_DATE), undefined ) ),
-        elementValidator: (el) => el.getAttribute('name') === "job_application[educations][][start_date][month]",
-        action: KNOWN_QUESTION_ACTION.RESOLVE,
-        notes: 'From* Start Month'
+        dbAnswerKey: DB_KEY_MAP.PHONE_NUMBER,
+        value: undefined,
+        elementValidator: (el) => el.getAttribute('name') == 'phone',                    
+        action: KNOWN_QUESTION_ACTION.SKIP_IF_DATA_UNAVAILABLE,
+        notes: 'Phone Number*'
     },
-    EDUCATION_START_DATE_YEAR: {
+    CURRENT_LOCATION: {
         type: FIELD_TYPE.TEXT,
-        dbAnswerKey: DB_KEY_MAP.EDUCATION_START_DATE,
-        value: db => getYear( resolveAnswerValue( db, getKey(DB_KEY_MAP.EDUCATION_START_DATE), undefined ) ),
-        elementValidator: (el) => el.getAttribute('name') === "job_application[educations][][start_date][year]",
+        dbAnswerKey: DB_KEY_MAP.ADDRESSES,
+        value: undefined,
+        elementValidator: (el) => el.getAttribute('id') == 'location-input' && el.getAttribute('name') == 'location',
         action: KNOWN_QUESTION_ACTION.RESOLVE,
-        notes: 'From* Start Year'
+        notes: 'Current Location*'
     },
-    EDUCATION_END_DATE_MONTH: {
-        type: FIELD_TYPE.TEXT,
-        dbAnswerKey: DB_KEY_MAP.EDUCATION_END_DATE,
-        value: db => getMonth( resolveAnswerValue( db, getKey(DB_KEY_MAP.EDUCATION_END_DATE), undefined ) ),
-        elementValidator: (el) => el.getAttribute('name') === "job_application[educations][][end_date][month]",
-        action: KNOWN_QUESTION_ACTION.RESOLVE,
-        notes: 'To* End Month'
-    },
-    EDUCATION_END_DATE_YEAR: {
-        type: FIELD_TYPE.TEXT,
-        dbAnswerKey: DB_KEY_MAP.EDUCATION_END_DATE,
-        value: db => getYear( resolveAnswerValue( db, getKey(DB_KEY_MAP.EDUCATION_END_DATE), undefined ) ),
-        elementValidator: (el) => el.getAttribute('name') === "job_application[educations][][end_date][year]",
-        action: KNOWN_QUESTION_ACTION.RESOLVE,
-        notes: 'To* End Year'
-    },
-    WORK_EXP_COMPANY: {
+    CURRENT_COMPANY: {
         type: FIELD_TYPE.TEXT,
         dbAnswerKey: DB_KEY_MAP.WORK_EXPERIENCES_COMPANY_NAME,
-        value: db => resolveAnswerValue(db, getKey(DB_KEY_MAP.WORK_EXPERIENCES_COMPANY_NAME), undefined),
-        elementValidator: (el) => el.getAttribute('name') === "job_application[employments][][company_name]" || el.id?.startsWith('employment_company_name_'),
-        action: KNOWN_QUESTION_ACTION.RESOLVE,
-        notes: 'Company*'
-    },
-    WORK_EXP_JOB_TITLE: {
-        type: FIELD_TYPE.TEXT,
-        dbAnswerKey: DB_KEY_MAP.WORK_EXPERIENCES_JOB_TITLE,
-        value: db => resolveAnswerValue(db, getKey(DB_KEY_MAP.WORK_EXPERIENCES_JOB_TITLE), undefined),
-        elementValidator: (el) => el.getAttribute('name') === "job_application[employments][][title]" || el.id?.startsWith('employment_title_'),
-        action: KNOWN_QUESTION_ACTION.RESOLVE,
-        notes: 'Job Title*'
-    },
-    WORK_EXP_CURRENTLY_WORKING: {
-        type: FIELD_TYPE.CHECKBOX,
-        dbAnswerKey: DB_KEY_MAP.WORK_EXPERIENCES_END_DATE,
         value: db => {
-            return isCurrentlyWorking(resolveAnswerValue(db, getKey(DB_KEY_MAP.WORK_EXPERIENCES_END_DATE), undefined));
+            const first = resolveAnswerValue(db, 'workExperiences[0]', undefined);
+            return first ? resolveAnswerValue(db, 'workExperiences[0].company', undefined) : undefined;
         },
-        elementValidator: (el) => el.getAttribute("name") === "job_application[employments][][current]",
-        action: KNOWN_QUESTION_ACTION.FORCE_SKIP, // Synced during page initialization.
-        notes: 'I currently work here'
-    },
-    WORK_EXP_START_DATE_MONTH: {
-        type: FIELD_TYPE.TEXT,
-        dbAnswerKey: DB_KEY_MAP.WORK_EXPERIENCES_START_DATE,
-        value: db => getMonth( resolveAnswerValue( db, getKey(DB_KEY_MAP.WORK_EXPERIENCES_START_DATE), undefined ) ),
-        elementValidator: (el) => el.getAttribute('name') === "job_application[employments][][start_date][month]",
+        elementValidator: (el) => el.getAttribute('data-qa') == 'org-input' && el.getAttribute('name') == 'org',
         action: KNOWN_QUESTION_ACTION.RESOLVE,
-        notes: 'From* Start Month'
+        notes: 'Current Location*'
     },
-    WORK_EXP_START_DATE_YEAR: {
-        type: FIELD_TYPE.TEXT,
-        dbAnswerKey: DB_KEY_MAP.WORK_EXPERIENCES_START_DATE,
-        value: db => getYear( resolveAnswerValue( db, getKey(DB_KEY_MAP.WORK_EXPERIENCES_START_DATE), undefined ) ),
-        elementValidator: (el) => el.getAttribute('name') === "job_application[employments][][start_date][year]",
-        action: KNOWN_QUESTION_ACTION.RESOLVE,
-        notes: 'From* Start Year'
+    LINKEDIN: {
+        type: [FIELD_TYPE.TEXT, FIELD_TYPE.URL],
+        dbAnswerKey: DB_KEY_MAP.LINKEDIN,
+        value: undefined,
+        elementValidator: (el) => el.getAttribute('name') === 'urls[LinkedIn]',
+        action: KNOWN_QUESTION_ACTION.SKIP_IF_DATA_UNAVAILABLE,
+        notes: 'LinkedIn*'
     },
-    WORK_EXP_END_DATE_MONTH: {
-        type: FIELD_TYPE.TEXT,
-        dbAnswerKey: DB_KEY_MAP.WORK_EXPERIENCES_END_DATE,
-        value: db => getMonth( resolveAnswerValue( db, 'endDate', undefined ) ),
-        elementValidator: (el) => el.getAttribute('name') === "job_application[employments][][end_date][month]",
-        action: KNOWN_QUESTION_ACTION.RESOLVE,
-        notes: 'To* End Month'
+    GITHUB: {
+        type: [FIELD_TYPE.TEXT, FIELD_TYPE.URL],
+        dbAnswerKey: DB_KEY_MAP.GITHUB,
+        value: undefined,
+        elementValidator: (el) => el.getAttribute('name') === 'urls[GitHub]',
+        action: KNOWN_QUESTION_ACTION.SKIP_IF_DATA_UNAVAILABLE,
+        notes: 'GitHub*'
     },
-    WORK_EXP_END_DATE_YEAR: {
-        type: FIELD_TYPE.TEXT,
-        dbAnswerKey: DB_KEY_MAP.WORK_EXPERIENCES_END_DATE,
-        value: db => getYear( resolveAnswerValue( db, getKey(DB_KEY_MAP.WORK_EXPERIENCES_END_DATE), undefined ) ),
-        elementValidator: (el) => el.getAttribute('name') === "job_application[employments][][end_date][year]",
-        action: KNOWN_QUESTION_ACTION.RESOLVE,
-        notes: 'To* End Year'
+    PORTFOLIO: {
+        type: [FIELD_TYPE.TEXT, FIELD_TYPE.URL],
+        dbAnswerKey: DB_KEY_MAP.PORTFOLIO,
+        value: undefined,
+        elementValidator: (el) => el.getAttribute('name') === 'urls[Portfolio]',
+        action: KNOWN_QUESTION_ACTION.SKIP_IF_DATA_UNAVAILABLE,
+        notes: 'Portfolio*'
     },
-    TODAY_DAY: {
-        type: [FIELD_TYPE.TEXT, FIELD_TYPE.DATE],
+    FACEBOOK: {
+        type: [FIELD_TYPE.TEXT, FIELD_TYPE.URL],
         dbAnswerKey: undefined,
-        value: db => getLocalDate('dd'),
-        elementValidator: (el) => el.classList.contains("day"),
-        action: KNOWN_QUESTION_ACTION.RESOLVE,
-        notes: 'Today day*'
+        value: undefined,
+        elementValidator: (el) => el.getAttribute('name') === 'urls[Facebook]',
+        action: KNOWN_QUESTION_ACTION.SKIP,
+        notes: 'Facebook'
     },
-    TODAY_MONTH: {
-        type: [FIELD_TYPE.TEXT, FIELD_TYPE.DATE],
+    TWITTER: {
+        type: [FIELD_TYPE.TEXT, FIELD_TYPE.URL],
         dbAnswerKey: undefined,
-        value: db => getLocalDate('mm'),
-        elementValidator: (el) => el.classList.contains("month"),
-        action: KNOWN_QUESTION_ACTION.RESOLVE,
-        notes: 'Today month*'
+        value: undefined,
+        elementValidator: (el) => el.getAttribute('name') === 'urls[Twitter]',
+        action: KNOWN_QUESTION_ACTION.SKIP,
+        notes: 'Twitter'
     },
-    TODAY_YEAR: {
-        type: [FIELD_TYPE.TEXT, FIELD_TYPE.DATE],
+    OTHER_WEBSITE_URL: {
+        type: [FIELD_TYPE.TEXT, FIELD_TYPE.URL],
         dbAnswerKey: undefined,
-        value: db => getLocalDate('yyyy'),
-        elementValidator: (el) => el.classList.contains("year"),
-        action: KNOWN_QUESTION_ACTION.RESOLVE,
-        notes: 'Today year*'
+        value: db => {
+            const urls = resolveAnswerValue(db, 'otherURLs', []);
+            return Array.isArray(urls) && urls.length > 0
+                ? urls[0]
+                : undefined;
+        },
+        elementValidator: (el) => el.getAttribute('name') === 'urls[Other]',
+        action: KNOWN_QUESTION_ACTION.SKIP_IF_DATA_UNAVAILABLE,
+        notes: 'Other website'
     },
     GENDER: {
         type: [FIELD_TYPE.SELECT, FIELD_TYPE.CHECKBOX, FIELD_TYPE.RADIO],
         dbAnswerKey: DB_KEY_MAP.GENDER,
         value: db => {
             const dbAnswer = resolveAnswerValue(db, DB_KEY_MAP.GENDER, undefined);
-
-            const result = [];
-            if (dbAnswer != null) result.push(dbAnswer);
-            if (dbAnswer == null || dbAnswer === "Decline to state") {
-                const atsOptionalLabels = ["Decline To Self Identify"];
-                result.push(...atsOptionalLabels);
+            if (dbAnswer === "Decline to state") return ["Decline to self-identify"];
+            else if (dbAnswer != null) return [dbAnswer];
+            else return undefined;
+        },
+        elementValidator: (el) => el.getAttribute('name') === 'eeo[gender]',
+        action: KNOWN_QUESTION_ACTION.SKIP_IF_DATA_UNAVAILABLE,
+        notes: 'Gender*'
+    },
+    RACE: {
+        type: [FIELD_TYPE.SELECT, FIELD_TYPE.CHECKBOX, FIELD_TYPE.RADIO],
+        dbAnswerKey: DB_KEY_MAP.ETHNICITY,
+        value: db => {
+            const dbEthnicity = resolveAnswerValue( db, DB_KEY_MAP.ETHNICITY, undefined ); // Array
+            if (!Array.isArray(dbEthnicity) || !dbEthnicity.length) {
+                return undefined;
             }
 
-            // Remove duplicates
-            return Array.from(new Set(result));
+            // Push ATS specific options for mapped settings
+            if (dbEthnicity.includes("South Asian")) {
+                dbEthnicity.push("Asian (Not Hispanic or Latino)");
+            }
+            return dbEthnicity;
         },
-        elementValidator: (el) => el.getAttribute('name') === 'job_application[gender]' || el.id === 'job_application_gender',
-        action: KNOWN_QUESTION_ACTION.RESOLVE,
-        notes: 'Gender'
-    },
-    HISPANIC_OR_LATINO: {
-        type: [FIELD_TYPE.SELECT, FIELD_TYPE.CHECKBOX, FIELD_TYPE.RADIO],
-        dbAnswerKey: DB_KEY_MAP.HISPANIC_OR_LATINO,
-        value: db => resolveAnswerValue( db, DB_KEY_MAP.HISPANIC_OR_LATINO, undefined ),
-        elementValidator: (el) => el.getAttribute('name') === 'job_application[hispanic_ethnicity]' || el.id === 'job_application_hispanic_ethnicity',
-        action: KNOWN_QUESTION_ACTION.RESOLVE,
-        notes: 'Hispanic or Latino*'
+        elementValidator: (el) => el.getAttribute('name') === 'eeo[race]',
+        action: KNOWN_QUESTION_ACTION.SKIP_IF_DATA_UNAVAILABLE,
+        notes: 'Race*'
     },
     VETERAN_STATUS: {
         type: [FIELD_TYPE.SELECT, FIELD_TYPE.CHECKBOX, FIELD_TYPE.RADIO],
         dbAnswerKey: DB_KEY_MAP.VETERAN_STATUS,
         value: db => {
-            
             const dbAnswer = resolveAnswerValue(db, DB_KEY_MAP.VETERAN_STATUS, undefined);
 
             // Flexible mapping for boolean values → each key maps to a list of ATS labels
             const booleanLabelMap = {
-                true: ["I identify as a veteran"],
+                true: ["I am a veteran"],
                 false: ["I am not a veteran"]
             };
 
-            let result = [];
+            if (dbAnswer === "Decline to state") return ["Decline to self-identify"];
+            if (typeof dbAnswer === "boolean") return booleanLabelMap[dbAnswer]
+            return undefined;
 
-            if (typeof dbAnswer === "boolean") {
-                result.push(...(booleanLabelMap[dbAnswer] || []));  // <-- spread here
-            } else if (dbAnswer == null || dbAnswer === "Decline to state") {
-                const atsOptionalLabels = ["I don't wish to answer"];
-                result.push(...atsOptionalLabels);
-            } else {
-                result.push(dbAnswer);
-            }
-
-            // Ensure uniqueness
-            return Array.from(new Set(result));
         },
-        elementValidator: (el) => el.getAttribute('name') === 'job_application[veteran_status]' || el.id === 'job_application_veteran_status',
-        action: KNOWN_QUESTION_ACTION.RESOLVE,
+        elementValidator: (el) => el.getAttribute('name') === 'eeo[veteran]',
+        action: KNOWN_QUESTION_ACTION.SKIP_IF_DATA_UNAVAILABLE,
         notes: 'Veteran Status*'
     },
-    DISABILITY_STATUS: {
-        type: [FIELD_TYPE.SELECT, FIELD_TYPE.CHECKBOX, FIELD_TYPE.RADIO],
-        dbAnswerKey: DB_KEY_MAP.DISABILITY_STATUS,
-        value: db => {
-            
-            const dbAnswer = resolveAnswerValue(db, DB_KEY_MAP.DISABILITY_STATUS, undefined);
-
-            // Flexible mapping for boolean values → each key maps to a list of ATS labels
-            const booleanLabelMap = {
-                true: ["Yes, I have a disability, or have had one in the past"],
-                false: ["No, I do not have a disability and have not had one in the past"]
-            };
-
-            let result = [];
-
-            if (typeof dbAnswer === "boolean") {
-                result.push(...(booleanLabelMap[dbAnswer] || []));  // <-- spread here
-            } else if (dbAnswer == null || dbAnswer === "Decline to state") {
-                const atsOptionalLabels = ["I do not want to answer"];
-                result.push(...atsOptionalLabels);
-            } else {
-                result.push(dbAnswer);
-            }
-
-            // Ensure uniqueness
-            return Array.from(new Set(result));
-        },
-        elementValidator: (el) => el.getAttribute('name') === 'job_application[disability_status]' || el.id === 'job_application_disability_status',
+    CONCENT: {
+        type: [FIELD_TYPE.CHECKBOX],
+        dbAnswerKey: undefined,
+        value: db => { return true },
+        elementValidator: (el) => el.getAttribute('name')?.startsWith('consent['),
         action: KNOWN_QUESTION_ACTION.RESOLVE,
-        notes: 'Disability Status*'
+        notes: 'Concent checkbox*'
     },
+    DEMOGRAPHIC_SURVEY_LOCATION : {
+        type: [FIELD_TYPE.SELECT],
+        dbAnswerKey: undefined,
+        value: undefined,
+        elementValidator: (el) => el.getAttribute('data-qa') === "candidate-location-select",
+        action: KNOWN_QUESTION_ACTION.SKIP,
+        notes: 'What is your location?'
+    }
 }
+
 
 /* ============================================================================
  * 🔑 KEYS & CONSTANTS

@@ -26,6 +26,13 @@ export const PLATFORM_REGISTRY = [
     regex: /greenhouse\.io$/i,
     modulePath: 'dist/modules/ats/greenhouse.js'
   },
+  {
+    type: PLATFORM_TYPE.ATS,
+    name: 'Lever',
+    regex: /(^|\.)lever\.co$/i,
+    modulePath: 'dist/modules/ats/lever.js'
+  },
+
 
   // ================= JOB BOARDS =================
   {

@@ -1,4 +1,5 @@
 // utils/formUtils.js
+import { getBestResume } from '@shared/utils/utility.js';
 
 
 /**
@@ -1370,6 +1371,33 @@ export function normalizeMultiselectValues(value) {
 }
 
 
+/* --------------------------------------------------------------------------
+ * 🎛️ normalizeMultiselectValues(value)
+ * ------------------------------------------------------------------------ */
+export async function resolveResume(primaryResume, jobDetails, {ignoreLLM = false, timeoutSeconds = null} = {}) {
+    let resumePath;
+    // Request server via background.js
+    if (!ignoreLLM) {
+        const jobLocations = jobDetails?.locations;
+        const jobDescription = jobDetails?.title 
+            ? `Job Role: ${jobDetails?.title}\n\n${jobDetails?.description}` 
+            : jobDetails?.description;
+        // Request server via background.js
+        resumePath = await getBestResume(jobLocations, jobDescription, timeoutSeconds);
+    }
+    // Fallback to primary address
+    if (resumePath == null){ 
+        if ('resumeStoredPath' in primaryResume) resumePath = primaryResume['resumeStoredPath'];
+    }
+    // Return if valid
+    if (resumePath != null) {
+        const uploadsRootPath = 'web/uploads/';
+        return uploadsRootPath + resumePath;
+    }
+    return null;
+}
+
+
 /* =========================================================================================
 * 🟰 Similarity Helpers Logic
 * ========================================================================================= */
@@ -1665,7 +1693,6 @@ export const similarity = (a, b) => {
 /* =========================================================================================
 * 🎨 Commit Dispatch 
 * ========================================================================================= */
-
 export function commitElement(el) {
     if (!(el instanceof HTMLElement)) return;
     if (!el.isConnected) return;
@@ -1745,69 +1772,6 @@ export function setupAutoCommitOnMutation({ selectors, debounceMs = 150, filter 
         }
     };
 }
-
-// /**
-//  * Force-commit form fields by dispatching `focusout`
-//  * Useful for Workday spinbuttons, numeric fields, masked inputs, etc.
-//  *
-//  * @param {Object} options
-//  * @param {string|string[]} options.selectors - CSS selector(s) to match fields
-//  * @param {(el: HTMLElement) => boolean} [options.filter] - Optional filter predicate
-//  * @param {boolean} [options.onlyIfHasValue=true] - Skip empty fields
-//  * @param {number} [options.delayMs=0] - Optional delay between commits
-//  */
-// export async function forceCommitFields({ selectors, filter, onlyIfHasValue = true, delayMs = 50 } = {}) {
-//     if (!selectors) return;
-
-//     const sleep = ms => new Promise(r => setTimeout(r, ms));
-//     const selectorList = Array.isArray(selectors) ? selectors : [selectors];
-
-//     const elements = selectorList.flatMap(sel =>
-//         Array.from(document.querySelectorAll(sel))
-//     );
-
-//     for (const el of elements) {
-//         if (!(el instanceof HTMLElement)) continue;
-//         if (filter && !filter(el)) continue;
-
-//         // Skip empty if requested
-//         if (onlyIfHasValue) {
-//             let value;
-//             if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
-//                 value = el.value;
-//             } else if (el.isContentEditable) {
-//                 value = el.textContent;
-//             } else {
-//                 value = null;
-//             }
-//             if (!value || String(value).trim() === "") continue;
-//         }
-
-//         // Focus first
-//         el.focus();
-
-//         // Dispatch input/change for text fields
-//         if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el.isContentEditable) {
-//             el.dispatchEvent(new Event('input', { bubbles: true }));
-//             el.dispatchEvent(new Event('change', { bubbles: true }));
-//         }
-
-//         // Special handling for dropdown/listbox
-//         const isDropdown = el.getAttribute('aria-haspopup') === 'listbox';
-//         if (isDropdown && el.getAttribute('aria-expanded') === 'true') {
-//             // Click outside to force close
-//             document.body.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
-//             document.body.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
-//             document.body.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-//         }
-
-//         // Finalize commit
-//         el.dispatchEvent(new FocusEvent('focusout', { bubbles: true, composed: true, relatedTarget: document.body }));
-//         try { el.blur(); } catch {}
-
-//         if (delayMs > 0) await sleep(delayMs);
-//     }
-// }
 
 const __commitLock = {
     busy: false,
@@ -2074,8 +2038,6 @@ export async function forceCommitFieldsFor(targets, { maxCycles = 3, delayMs = 1
         await sleep(delayMs);
     });
 }
-
-
 
 /**
  * 🧠 Selector-driven, non-invasive commit for controlled ATS forms

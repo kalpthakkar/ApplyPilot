@@ -500,6 +500,7 @@ class ChatGPT:
     def open_chatgpt(self, search_incognito: bool = False, search_tor = False) -> bool:
         # Init Configurations
         if self.enforce_console_pasting: self.browser.enforce_console_pasting = True
+        else: self.browser.enforce_console_pasting = False
         # Open ChatGPT URL
         if search_tor: result = self.browser.open_url_in_tor(CHATGPT_URL, retry=2)
         elif search_incognito: result = self.browser.open_incognito(CHATGPT_URL, dynamic_loading=True)

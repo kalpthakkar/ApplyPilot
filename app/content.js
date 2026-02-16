@@ -22,7 +22,6 @@
 import { PLATFORM_REGISTRY } from '@modules/registry.js';
 import { notifyTabState, getTabState, sleep } from '@shared/utils/utility.js';
 
-
 /* --------------------------------------------------------------------------
  * 🗂️ MODULE REGISTRY & CACHING
  * ------------------------------------------------------------------------ */

@@ -504,7 +504,7 @@ export async function sendKeysToInputs(inputs, delayMs = 50) {
  * -------------------------------------------------------------------------- */
 export async function radioSelect(radioLocator, answers, {threshold = null, useAverage = false, selectAtLeastOne = false, mode = 'select'} = {}) {
     // 1️⃣ Validate answers
-    if (!Array.isArray(answers) || !answers.length) {
+    if (mode === 'select' && (!Array.isArray(answers) || !answers.length)) {
         console.warn('❌ radio(): Answers must be a non-empty array.');
         return {success: false, best: null, ranked: [], options: []};
     }
@@ -1268,7 +1268,7 @@ export async function dropdownSelect(dropdownLocator, answers, { threshold = 100
 /* =========================================================
 * 👇 Select
 * ======================================================= */
-export async function selectField(selectLocator, answers, {threshold = 100, useAverage = false, blacklist = ["Please select", "Select One", "--"], selectAtLeastOne = false, mode = 'select', mutationTimeout = 150} = {}) {
+export async function selectField(selectLocator, answers, {threshold = 100, useAverage = false, blacklist = ["Select...", "Please select", "Select One", "--"], selectAtLeastOne = false, mode = 'select', mutationTimeout = 150} = {}) {
 
     /* =========================================================
      * Resolve <select> element
@@ -1431,6 +1431,7 @@ export async function selectField(selectLocator, answers, {threshold = 100, useA
         options: optionTexts
     };
 }
+
 
 
 /* =========================================================
@@ -2095,7 +2096,7 @@ export async function multiselect( inputLocator, values, chipContainerLocator, {
  *   progressEvents: number
  * }>}
  * -------------------------------------------------------------------------- */
-export async function uploadFiles(fileInputLocator, filePaths, {filenameSelector = null, progressSelector = null, timeout = 5000, allowMultiple = true} = {}) {
+export async function uploadFiles(fileInputLocator, filePaths, {filenameSelector = null, progressSelector = null, timeout = 9000, allowMultiple = true} = {}) {
 	
     /* ===================== 1️⃣ Normalize Inputs ===================== */
 
@@ -2188,6 +2189,20 @@ export async function uploadFiles(fileInputLocator, filePaths, {filenameSelector
 	);
 
 	/* ===================== 5️⃣ Observe Upload Progress ===================== */
+    function normalizeFilename(name) {
+        if (!name) return "";
+
+        // Remove extension (last dot only)
+        const base = name.replace(/\.[^/.]+$/, "");
+
+        return base
+            .toLowerCase()               // ignore case
+            .normalize("NFKD")           // normalize unicode
+            .replace(/[^\w\s-]/g, "")    // remove weird characters
+            .replace(/\s+/g, " ")        // collapse whitespace
+            .trim();
+    }
+
 
     let progressEvents = 0;
 
@@ -2206,9 +2221,16 @@ export async function uploadFiles(fileInputLocator, filePaths, {filenameSelector
                     const renderedNames = [...document.querySelectorAll(filenameSelector)]
                         .map(el => el.textContent.trim());
 
+                    const normalizedRendered = renderedNames.map(normalizeFilename);
+
                     files.forEach(f => {
-                        if (renderedNames.some(name => name.includes(f.name))) {
-                            // Mark as counted if not already
+                        const normalizedFile = normalizeFilename(f.name);
+
+                        if (normalizedRendered.some(name => 
+                                name.includes(normalizedFile) 
+                                || normalizedFile.includes(name)
+                            )
+                        ) {
                             if (!f._counted) {
                                 completedCount++;
                                 f._counted = true;

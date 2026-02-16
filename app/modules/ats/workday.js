@@ -611,7 +611,7 @@ async function processApplicationFlow(page) {
 
 	console.log('======================================================================');
 	
-	const threshold = clamp((questions.length * 5)/100, 0.05, 0.50);
+	const threshold = clamp((questions.length * 4.5)/100, 0.05, 0.45);
 	await submitAndWait(threshold);
 	if (formHasErrors()) {
 		console.log("⚠️ Errors Detected. Performing one last resolution over errors")

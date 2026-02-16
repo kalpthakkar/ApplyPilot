@@ -35,7 +35,7 @@ import { createClient } from '@supabase/supabase-js'
 /* -------------------------------------------------------------------
  * 📧 INITIALIZE 🔹 GMAIL SERVICE
  * ------------------------------------------------------------------- */
-const SERVER_BASE_URL = `http://10.0.0.200:5001`;
+const SERVER_BASE_URL = `http://10.0.0.199:5001`;
 const SUPERBASE_PROJECT_ID = 'owvajbjbqhhwcznymirg'; 
 const SUPERBASE_PROJECT_URL = `https://${SUPERBASE_PROJECT_ID}.supabase.co`;
 const SUPERBASE_API_KEY = 'sb_publishable_pIq55b08XKZMnqa2-JdUdQ_Jin36ree';
@@ -685,6 +685,45 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 				});
 			})();
 			return false;
+		}
+
+		case 'getLeverLocationToken': {
+			async function getToken(tabId) {
+				const [{ result }] = await chrome.scripting.executeScript({
+					target: { tabId },
+					world: "MAIN", // critical
+					func: async () => {
+						const input = document.querySelector('#hcaptchaResponseInput');
+
+						const widgetID = String(
+							window.hcaptcha.render(input, {
+								sitekey: "e33f87f8-88ec-4e1a-9a13-df9bbb1d8120"
+							})
+						);
+
+						await new Promise(r => setTimeout(r, 1500));
+
+						window.hcaptcha.execute(widgetID);
+
+						let token = null;
+
+						for (let i = 0; i < 20; i++) {
+							token = window.hcaptcha.getResponse(widgetID);
+							if (token) break;
+							await new Promise(r => setTimeout(r, 500));
+						}
+
+						return token || null;
+					}
+				});
+
+				return result;
+			}
+
+			getToken(tabId).then(token => {
+				sendResponse({ token });
+			});
+			return true; // keep message channel open
 		}
 
 		/* ---------------------------------------------------------
