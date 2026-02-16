@@ -228,7 +228,7 @@ export async function resolveATSQuestions(
 	// ------------------------------------------------------------------
 	// 🔹 Register Question for LLM Resolution
 	// ------------------------------------------------------------------
-	async function setLLMBucket(question, matchedQuestionCandidate, matchedLabelCandidates, { options = [], reason = "unknown" } = {}) {
+	async function setLLMBucket(question, matchedQuestionCandidate, matchedLabelCandidates, { options = [], reason = "unknown", hint = None } = {}) {
 					
 		const qId = getQuestionId(question);
 
@@ -239,6 +239,10 @@ export async function resolveATSQuestions(
 		
 		const relevantDBKeys = [];
 		const hints = [];
+
+		if (hint) {
+			hints.push(hint);
+		}
 
 		if (matchedQuestionCandidate?.dbAnswerKey) {
 			if (!(
@@ -455,7 +459,7 @@ export async function resolveATSQuestions(
 						return { success: false, question, reason: 'question_exhausted_after_answer_resolution', exhausted: true };
 					}
 					// 🔹 Register Question for LLM Resolution (Case 1: NEEDS_LLM)
-					await setLLMBucket(question, matchedQuestion ?? {}, answerResolution.meta?.matchedLabelCandidates ?? [], {reason: 'needs_llm'});
+					await setLLMBucket(question, matchedQuestion ?? {}, answerResolution?.meta?.matchedLabelCandidates ?? [], {hint: answerResolution?.meta?.hint, reason: 'needs_llm'});
 					anyNewLLMRegistered = true;
 					return { success: false, question, reason: "needs_llm", promptHint: answerResolution.promptHint };
 				}
@@ -539,7 +543,7 @@ export async function resolveATSQuestions(
 							}
 							if (questionAttemptCount.get(qId) === maxAttemptsPerQuestion) return { success: false, question, reason: 'execution_failed_and_exhausted', exhausted: true };
 							// 🔹 Register Question for LLM Resolution (Case 2: EXECUTION ERROR)
-							await setLLMBucket(question, matchedQuestion ?? {}, answerResolution.meta?.matchedLabelCandidates ?? [], {options: execResult?.meta?.options, reason: 'execution_failed'});
+							await setLLMBucket(question, matchedQuestion ?? {}, answerResolution?.meta?.matchedLabelCandidates ?? [], {options: execResult?.meta?.options, hint: answerResolution?.meta?.hint, reason: 'execution_failed'});
 							anyNewLLMRegistered = true;
 							return {success: false, question, reason: 'execution_failed', execMeta: execResult};
 						}

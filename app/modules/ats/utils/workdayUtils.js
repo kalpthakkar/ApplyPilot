@@ -1430,7 +1430,7 @@ async function resolveAnswer(question, locators, matchedQuestion, labelEmbedding
 								value: val,
 								locators,
 								source: "element",
-								meta: {dbAnswerKey, dbAnswerKeyIdx, containerIdx}
+								meta: {dbAnswerKey, dbAnswerKeyIdx, containerIdx, hint: val}
 							};
 						}
 					}
@@ -1487,7 +1487,7 @@ async function resolveAnswer(question, locators, matchedQuestion, labelEmbedding
 								value: val,
 								locators,
 								source: "element",
-								meta: {dbAnswerKey, dbAnswerKeyIdx, containerIdx}
+								meta: {dbAnswerKey, dbAnswerKeyIdx, containerIdx, hint: val}
 							};
 						}
 
@@ -1507,7 +1507,7 @@ async function resolveAnswer(question, locators, matchedQuestion, labelEmbedding
 				value: val,
 				locators,
 				source: "element",
-				meta: {dbAnswerKey, dbAnswerKeyIdx, containerIdx}
+				meta: {dbAnswerKey, dbAnswerKeyIdx, containerIdx, hint: val}
 			};
 		}
 
@@ -1562,7 +1562,7 @@ async function resolveAnswer(question, locators, matchedQuestion, labelEmbedding
 								value: val,
 								locators,
 								source: "element",
-								meta: {dbAnswerKey, dbAnswerKeyIdx, containerIdx}
+								meta: {dbAnswerKey, dbAnswerKeyIdx, containerIdx, hint: val}
 							};
 						}
 					}
@@ -1624,7 +1624,7 @@ async function resolveAnswer(question, locators, matchedQuestion, labelEmbedding
 								value: val,
 								locators,
 								source: "element",
-								meta: {dbAnswerKey, dbAnswerKeyIdx, containerIdx}
+								meta: {dbAnswerKey, dbAnswerKeyIdx, containerIdx, hint: val}
 							};
 						}
 
@@ -1644,7 +1644,7 @@ async function resolveAnswer(question, locators, matchedQuestion, labelEmbedding
 				value: val,
 				locators,
 				source: "element",
-				meta: {dbAnswerKey, dbAnswerKeyIdx, containerIdx}
+				meta: {dbAnswerKey, dbAnswerKeyIdx, containerIdx, hint: val}
 			};
 		}
 
@@ -1752,7 +1752,7 @@ async function resolveAnswer(question, locators, matchedQuestion, labelEmbedding
 				value: val,
 				locators,
 				source: "element",
-				meta: {dbAnswerKey, dbAnswerKeyIdx, containerIdx}
+				meta: {dbAnswerKey, dbAnswerKeyIdx, containerIdx, hint: val}
 			};
 		}
 
