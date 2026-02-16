@@ -7,8 +7,8 @@ import { DB_KEY_MAP } from '@shared/config/config.js';
 // ============================================================================
 // 📁 Form Dependencies
 // ============================================================================
-import { FIELD_TYPE, FIELD_VALIDATOR, similarity, filterCheckboxLocators, normalizeResolver, syncContainersSimple, getContainerIndex, getDatabaseIndex, removeContainerSimple, normalizeInputValue, normalizeRadioAnswers, normalizeCheckboxAnswers, normalizeDropdownAnswers } from '@form/formUtils.js';
-import { click, clickAll, fillInput, radioSelect, checkboxSelect, selectField, uploadFiles } from '@form/formHandlers.js';
+import { FIELD_TYPE, FIELD_VALIDATOR, similarity, filterCheckboxLocators, normalizeResolver, syncContainersSimple, getContainerIndex, getDatabaseIndex, removeContainerSimple, normalizeInputValue, normalizeRadioAnswers, normalizeCheckboxAnswers, normalizeDropdownAnswers, normalizeMultiselectValues } from '@form/formUtils.js';
+import { click, clickAll, fillInput, radioSelect, checkboxSelect, selectField, select2Multiselect, uploadFiles } from '@form/formHandlers.js';
 import { KNOWN_QUESTION_ACTION, RESOLUTION_STATUS, EXECUTION_STATUS, CORRECTION_TYPE, resolveATSQuestions } from '@form/formResolver.js'
 
 // ============================================================================
@@ -1928,6 +1928,59 @@ async function formManager(
             };
         }
 
+        case 'multiselect': {
+
+            let normalizedValues;
+            try {
+                normalizedValues = normalizeMultiselectValues(val);
+            } catch (err) {
+                return async () => { 
+                    return {
+                        status: EXECUTION_STATUS.ERROR,
+                        reason: `Failed to normalize value: ${val}`,
+                        error: err.message
+                    };
+                };
+            }
+
+            if (normalizedValues == null) {
+                return async () => { 
+                    return {
+                        status: EXECUTION_STATUS.ERROR,
+                        reason: `Failed to normalize value: ${val}`,
+                        error: 'normalizeMultiselectValues() function returned `null`.'
+                    };
+                };
+            }
+
+            // Append 'Other' as fallback for safety
+            if (question.required) normalizedValues.push('Other');
+
+            return async () => {
+                const res = await select2Multiselect(
+                    resolveValidElements(locators, [FIELD_VALIDATOR.multiselect], 'AND'), 
+                    normalizedValues, 
+                    {
+                        threshold: 85, 
+                        useAverage: false, 
+                        blacklist: ["Select one or more", "Select...", "Please select"], 
+                        selectAtLeastOne: (question.required) ? true : false, 
+                        maxSelections: null
+                    }
+                );
+                console.log('Multiselect Response:', res);
+                if (!res?.success) {
+                    return {
+                        status: EXECUTION_STATUS.ERROR,
+                        reason: "multiselect_failed",
+                        error: undefined
+                    };
+                }
+                return { status: EXECUTION_STATUS.OK };
+            };
+
+        }
+
         case 'file': {
 
             return async () => {
@@ -2073,6 +2126,16 @@ export function isQuestionSet(question) {
             const select = resolveSelect();
             if (!(select instanceof HTMLSelectElement)) return false;
             return !!select.value;
+        }
+
+        case 'multiselect': {
+			const selectElResolver = normalizeResolver(locators, { mode: 'single' });
+			const selectEl = selectElResolver();
+			if (!selectEl) return false;
+            const selectElId = selectEl?.id ?? '';
+            const chipsContainerElId = 's2id_' + selectElId;
+            console.log("IS MULTISELECT SET? :::", (document.querySelectorAll(`#${chipsContainerElId} ul li.select2-search-choice`).length > 0) ? true : false)
+            return (document.querySelectorAll(`#${chipsContainerElId} ul li.select2-search-choice`).length > 0) ? true : false;
         }
 
         default:

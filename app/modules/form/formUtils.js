@@ -73,7 +73,7 @@ export const FIELD_VALIDATOR = {
 
     // Select / Multiselect dropdowns
     'select':      (el) => el.tagName === 'SELECT' && !el.multiple,
-    'multiselect': (el) => el.hasAttribute('data-uxi-multiselect-id'),
+    'multiselect': (el) => el.hasAttribute('data-uxi-multiselect-id') || (el.tagName === 'SELECT' && el.multiple),
     'dropdown':    (el) => el.getAttribute('role') === 'combobox' || el.getAttribute('aria-haspopup') === 'listbox',
 
     // Button

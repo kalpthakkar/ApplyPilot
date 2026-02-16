@@ -35,7 +35,7 @@ import { createClient } from '@supabase/supabase-js'
 /* -------------------------------------------------------------------
  * 📧 INITIALIZE 🔹 GMAIL SERVICE
  * ------------------------------------------------------------------- */
-const SERVER_BASE_URL = `http://10.105.174.85:5001`;
+const SERVER_BASE_URL = `http://10.108.175.198:5001`;
 const SUPERBASE_PROJECT_ID = 'owvajbjbqhhwcznymirg'; 
 const SUPERBASE_PROJECT_URL = `https://${SUPERBASE_PROJECT_ID}.supabase.co`;
 const SUPERBASE_API_KEY = 'sb_publishable_pIq55b08XKZMnqa2-JdUdQ_Jin36ree';

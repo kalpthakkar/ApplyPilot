@@ -1437,6 +1437,396 @@ export async function selectField(selectLocator, answers, {threshold = 100, useA
 }
 
 
+/* =========================================================
+* 🎛️ select2Multiselect
+* ======================================================= */
+export async function select2Multiselect(
+    locators,
+    answers,
+    {
+        threshold = 85,
+        useAverage = false,
+        blacklist = ["Select one or more", "Select...", "Please select"],
+        selectAtLeastOne = false,
+        maxSelections = null,
+        mutationTimeout = 2000,
+        delayMs = 75,
+        mode = 'select'
+    } = {}
+) {
+
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+    /* =========================================================
+     * Resolve hidden <select>
+     * ======================================================= */
+
+    const resolveSelectInput = normalizeResolver(locators);
+    const selectEl = resolveSelectInput();
+    const selectElId = selectEl?.id;
+    const clickableElId = (typeof selectElId === "string") ? 's2id_' + selectElId : '';
+
+    if (!clickableElId) {
+        console.warn("❌ select2Multiselect(): clickable element (to open listbox) not found");
+        return { success: false, selected: [], ranked: [], options: [] };
+    }
+
+    if (!selectEl) {
+        console.warn("❌ select2Multiselect(): select element not found");
+        return { success: false, selected: [], ranked: [], options: [] };
+    }
+
+    function humanClick(element) {
+        const rect = element.getBoundingClientRect();
+
+        const x = rect.left + Math.random() * rect.width;
+        const y = rect.top + Math.random() * rect.height;
+
+        const delay = 100 + Math.random() * 200;
+
+        setTimeout(() => {
+            element.dispatchEvent(new MouseEvent('mousemove', {
+            bubbles: true,
+            clientX: x,
+            clientY: y
+            }));
+
+            element.dispatchEvent(new MouseEvent('mousedown', {
+            bubbles: true,
+            clientX: x,
+            clientY: y
+            }));
+
+            element.dispatchEvent(new MouseEvent('mouseup', {
+            bubbles: true,
+            clientX: x,
+            clientY: y
+            }));
+
+            element.dispatchEvent(new MouseEvent('click', {
+            bubbles: true,
+            clientX: x,
+            clientY: y
+            }));
+
+        }, delay);
+    }
+    humanClick(document.getElementById(clickableElId));
+    await click(document.getElementById(clickableElId))
+
+    /* =========================================================
+     * Resolve combobox input
+     * ======================================================= */
+
+    const comboInput = await resolveResilient(
+        () => {
+            return selectEl
+                .closest(".field, div")
+                ?.querySelector('input[role="combobox"][aria-controls]');
+        },
+        {
+            validate: el => el && el.isConnected,
+            mutationTimeout
+        }
+    );
+
+    if (!comboInput) {
+        console.warn("❌ select2Multiselect(): combobox input not found");
+        return { success: false, selected: [], ranked: [], options: [] };
+    }
+
+    /* =========================================================
+     * Open dropdown
+     * ======================================================= */
+
+    comboInput.focus();
+    comboInput.click();
+
+    const listId = comboInput.getAttribute("aria-controls");
+
+    if (!listId) {
+        console.warn("❌ select2Multiselect(): aria-controls missing");
+        return { success: false, selected: [], ranked: [], options: [] };
+    }
+
+    /* =========================================================
+     * Resolve dropdown listbox
+     * ======================================================= */
+
+    const listEl = await resolveResilient(
+        () => document.getElementById(listId),
+        {
+            validate: el =>
+                el &&
+                el.isConnected &&
+                el.querySelector('[role="option"]'),
+            mutationTimeout
+        }
+    );
+
+    if (!listEl) {
+        console.warn("❌ select2Multiselect(): listbox not found");
+        return { success: false, selected: [], ranked: [], options: [] };
+    }
+
+    /* =========================================================
+     * Extract options
+     * ======================================================= */
+
+    function extractOptions() {
+        const seen = new Set();
+
+        return [...listEl.querySelectorAll('[role="option"]')]
+            .map(li => ({
+                element: li,
+                text: li.textContent.replace(/\s+/g, " ").trim()
+            }))
+            .filter(o => {
+                if (!o.text) return false;
+                if (blacklist.includes(o.text)) return false;
+                if (seen.has(o.text)) return false;
+
+                seen.add(o.text);
+                return true;
+            });
+    }
+
+
+    let options = extractOptions();
+
+    if (!options.length) {
+        return { success: false, selected: [], ranked: [], options: [] };
+    }
+
+    const optionTexts = options.map(o => o.text);
+
+    if (mode === 'inspect') {
+        return {
+            success: true,
+            options: optionTexts
+        };
+    }
+
+    /* =========================================================
+     * Similarity ranking
+     * ======================================================= */
+
+    const ranked = options.map(opt => {
+
+        const scores = answers.map(answer =>
+            similarity(answer, opt.text)
+        );
+
+        return {
+            text: opt.text,
+            element: opt.element,
+            score: useAverage
+                ? scores.reduce((a,b)=>a+b,0)/scores.length
+                : Math.max(...scores)
+        };
+
+    }).sort((a,b)=>b.score-a.score);
+
+
+    if (!ranked.length) {
+        return { success: false, selected: [], ranked, options: optionTexts };
+    }
+
+    /* =========================================================
+    * Select options (REOPEN dropdown each time)
+    * ======================================================= */
+
+    const selectedTexts = new Set(
+        [...selectEl.selectedOptions].map(o =>
+            o.textContent.trim()
+        )
+    );
+
+    const added = [];
+
+    for (const item of ranked) {
+
+        if (maxSelections && selectedTexts.size >= maxSelections)
+            break;
+
+        const meetsThreshold = item.score >= threshold;
+
+        if (!meetsThreshold) {
+
+            if (!selectAtLeastOne)
+                continue;
+
+            // allow ONLY the first acceptable candidate
+            if (added.length > 0)
+                continue;
+        }
+
+
+        if (selectedTexts.has(item.text))
+            continue;
+
+        /* ============================================
+        STEP 1: reopen dropdown
+        ============================================ */
+
+        await click(document.getElementById(clickableElId));
+
+        const comboInput = await resolveResilient(
+            () =>
+                selectEl
+                    .closest(".field, div")
+                    ?.querySelector(
+                        'input[role="combobox"][aria-controls]'
+                    ),
+            {
+                validate: el => el && el.isConnected,
+                mutationTimeout
+            }
+        );
+
+        if (!comboInput) continue;
+
+        comboInput.focus();
+        comboInput.click();
+
+        const listId =
+            comboInput.getAttribute("aria-controls");
+
+        if (!listId) continue;
+
+        const listEl = await resolveResilient(
+            () => document.getElementById(listId),
+            {
+                validate: el =>
+                    el &&
+                    el.isConnected &&
+                    el.querySelector('[role="option"]'),
+                mutationTimeout
+            }
+        );
+
+        if (!listEl) continue;
+
+        /* ============================================
+        STEP 2: find fresh option element
+        ============================================ */
+
+        const optionEl = await resolveResilient(
+            () => {
+
+                const options =
+                    [...listEl.querySelectorAll('[role="option"]')];
+
+                return options.find(
+                    el =>
+                        el.textContent
+                            .replace(/\s+/g, " ")
+                            .trim() === item.text
+                ) || null;
+
+            },
+            {
+                retries: 3,
+                mutationTimeout: 500
+            }
+        );
+
+        if (!optionEl) continue;
+
+        /* ============================================
+        STEP 3: select option
+        ============================================ */
+
+        optionEl.dispatchEvent(
+            new MouseEvent("mousedown", {
+                bubbles: true,
+                cancelable: true,
+                view: window
+            })
+        );
+
+        optionEl.dispatchEvent(
+            new MouseEvent("mouseup", {
+                bubbles: true,
+                cancelable: true,
+                view: window
+            })
+        );
+
+        optionEl.dispatchEvent(
+            new MouseEvent("click", {
+                bubbles: true,
+                cancelable: true,
+                view: window
+            })
+        );
+
+        /* ============================================
+        STEP 4: wait until hidden select updates
+        ============================================ */
+
+        await resolveResilient(
+            () => {
+
+                const nowSelected =
+                    [...selectEl.selectedOptions]
+                        .map(o => o.textContent.trim());
+
+                if (nowSelected.includes(item.text))
+                    return true;
+
+                return null;
+
+            },
+            {
+                retries: 4,
+                mutationTimeout: 400
+            }
+        );
+
+        selectedTexts.add(item.text);
+
+        added.push({
+            text: item.text,
+            score: item.score
+        });
+
+        await sleep(delayMs);
+    }
+
+
+    /* =========================================================
+     * Verify selection via hidden select
+     * ======================================================= */
+
+    const finalSelected = [...selectEl.selectedOptions]
+        .map(o => o.textContent.trim());
+
+    const success =
+        finalSelected.length > 0 &&
+        added.length > 0;
+
+    if (!success) {
+        console.warn("❌ select2Multiselect(): no selections registered");
+        return {
+            success: false,
+            selected: finalSelected,
+            ranked,
+            options: optionTexts
+        };
+    }
+
+    console.log("✅ Select2 multiselect selected:", finalSelected);
+
+    return {
+        success: true,
+        selected: finalSelected,
+        added,
+        ranked,
+        options: optionTexts
+    };
+}
+
 
 /* =========================================================
 * 🎛️ Multiselect
@@ -1525,253 +1915,6 @@ export async function selectField(selectLocator, answers, {threshold = 100, useA
  * • Verifies actual framework state via DOM mutations
  * • Safe to re-run without duplicating chips when constraints are enforced
  * -------------------------------------------------------------------------- */
-// export async function multiselect( inputLocator, values, chipContainerLocator, { chipSelector = 'li', selectAllRelated = false, radioThreshold = 85, maxChips = 'auto', minChips = null, exactChips = null, timeout = 1500 } = {}) {
-
-//     if (!Array.isArray(values) || !values.length) {
-//         return { success: false, added: [], chips: [] };
-//     }
-
-//     const resolveInput = normalizeResolver(inputLocator);
-//     const resolveChipContainer = normalizeResolver(chipContainerLocator);
-//     const sleep = ms => new Promise(r => setTimeout(r, ms));
-
-//     // Resolve and get multiselect ID
-//     const input = resolveInput();
-//     function getMultiselectId(input) {
-//         const id = input.getAttribute('data-uxi-multiselect-id');
-//         if (!id) return null;
-//         return id
-//     }
-//     const multiselectId = getMultiselectId(input);
-
-//     /* -------------------------------------------------------
-//      * Chip helpers (truth signal)
-//      * ----------------------------------------------------- */
-//     const getChips = () => {
-//         const c = resolveChipContainer();
-//         if (!c) return [];
-//         return [...c.querySelectorAll(chipSelector)];
-//     };
-//     const chipTexts = () => getChips().map(c => c.textContent.replace(/\s+/g, ' ').trim());
-
-//     async function safeClick(checkboxOrRadio) {
-//         try {
-//             if (!checkboxOrRadio) return false;
-
-//             // For checkbox: Skip if already selected
-//             if (checkboxOrRadio.type === 'checkbox' && (checkboxOrRadio.checked || checkboxOrRadio.getAttribute('aria-checked') === 'true')) {
-//                 return true;
-//             }
-
-//             // For radio: Skip if already selected
-//             if (checkboxOrRadio.type === 'radio' && checkboxOrRadio.checked) {
-//                 return true;
-//             }
-
-//             checkboxOrRadio.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
-//             checkboxOrRadio.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
-//             checkboxOrRadio.click();
-
-//             return true;
-//         } catch (e) {
-//             console.warn('Click failed:', checkboxOrRadio, e);
-//             return false;
-//         }
-//     }
-
-
-//     /* -------------------------------------------------------
-//      * MAIN LOOP
-//      * ----------------------------------------------------- */
-
-//     const added = [];
-
-//     let maxChipsSynced = false;
-//     const argMaxChips = maxChips;
-//     maxChips = null;
-
-//     let bestRadioMatch = { score: 0, option: null }; // Track the best similarity score
-    
-//     for (const value of values) {
-
-//         const input = resolveInput();
-//         if (!input) {
-//             console.warn("❌ Multiselect input not found");
-//             return { success: false, added: added, chips: chipTexts() };
-//         }
-
-//         const prevChipCount = getChips().length;
-//         const prevChipOptionsText = chipTexts();
-//         // Respect maxChips
-//         if (maxChips && prevChipCount >= maxChips) {
-//             console.log("✅ Max chips reached");
-//             break;
-//         }
-
-//         // ---------- Fast Direct Injection ----------
-//         input.focus();
-//         input.value = '';
-//         input.dispatchEvent(new Event('input', { bubbles: true }));
-
-//         await sleep(50); // sleep 50 ms
-
-//         input.value = value;
-//         input.dispatchEvent(new Event('input', { bubbles: true }));
-
-
-//         const submit = () => {
-//             // 1️⃣ Enter
-//             input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
-//             input.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', bubbles: true }));
-
-//             setTimeout(() => {
-//                 // 2️⃣ Blur fallback
-//                 input.blur();
-
-//                 // 3️⃣ Comma tokenization fallback
-//                 input.value = value + ',';
-//                 input.dispatchEvent(new Event('input', { bubbles: true }));
-//             }, 10);
-//         };
-
-//         submit();
-
-//         /* ---------- CHECKBOX PATH ---------- */
-//         await sleep(800);
-//         if(!!el(`[data-associated-widget="${multiselectId}"]`)) {
-//             await waitUntilSmart(
-//                 () => el(`[data-associated-widget="${multiselectId}"]`).innerText !== '',
-//                 { timeout: 10 }
-//             )
-//         }
-//         await sleep(80);
-
-//         const totalOptions = els(`[data-associated-widget="${multiselectId}"] div[role="option"]`).length;
-//         const optionsText = [...els(`[data-associated-widget="${multiselectId}"] div[role="option"] div[data-automation-id="promptOption"]`)].map(el => el.textContent.trim());
-
-//         const checkboxOptionEls = [...els(`[data-associated-widget="${multiselectId}"] div[role="option"] input[type="checkbox"]`)];
-//         const radioOptionEls = [...els(`[data-associated-widget="${multiselectId}"] div[role="option"] input[type="radio"]`)];
-        
-
-//         if (!maxChipsSynced) {
-//             if (checkboxOptionEls.length > 0) { // Contains checkbox(s)
-//                 if (argMaxChips === 'auto') {
-//                     maxChips = null; // Allow search for all values without max-cap.
-//                 }
-//             } else {    // Single chip allowed
-//                 if (argMaxChips === 'auto') {
-//                     maxChips = 1; // Single input multiselect type field.
-//                 } else if (typeof argMaxChips === Number) {
-//                     if (argMaxChips <= 0) {
-//                         break;
-//                     } else {
-//                         maxChips = argMaxChips;
-//                     }
-//                 } else {
-//                     maxChips = null;
-//                 }
-//             }
-
-//             maxChipsSynced = true;
-//         }
-
-        
-//         if (checkboxOptionEls.length > 0) {
-//             // Decide what to click
-//             const targets = selectAllRelated
-//                 ? checkboxOptionEls
-//                 : checkboxOptionEls.slice(0, 1);
-
-//             // Parallel, failure-proof execution
-//             await Promise.allSettled(targets.map(cb => safeClick(cb)));
-//             await sleep(120)
-//         } else if (radioOptionEls.length > 0) {
-
-//             for (const [index, radio] of radioOptionEls.entries()) {
-//                 const optionText = optionsText[index];
-//                 const similarityScore = similarity(value, optionText); // Calculate similarity score
-//                 if (similarityScore >= radioThreshold) {
-//                     // Update best match if this option has a higher similarity score
-//                     if (similarityScore > bestRadioMatch.score) {
-//                         bestRadioMatch = { score: similarityScore, option: radio };
-//                     }
-//                 }
-//             }
-
-//             // If no selection was made and minSelections > 0, select the best option
-//             if (prevChipCount===0 && minChips > 0) {
-//                 if (bestRadioMatch.option) {
-//                     await safeClick(bestRadioMatch.option);
-//                 } else {
-//                     await safeClick(radioOptionEls[0]);
-//                 }
-//                 await sleep(120);
-//             }
-//         }
-
-
-//         /* ---------- CONFIRM ---------- */
-//         const postChipCount = getChips().length;
-//         const success = (postChipCount - prevChipCount > 0) ? true : false;
-
-//         if (success) {
-//             added.push(value);
-//             console.log(`➰✅ "${value}" added`);
-//         } else {
-//             console.info(`➰ "${value}" not accepted`);
-//         }
-//     }
-
-
-//     // Snapshot final chip state
-//     const currentChips = chipTexts();
-
-//     // ---------- Enforce maxChips (structural constraint) ----------
-//     if (typeof maxChips === 'number' && currentChips.length > maxChips) {
-//         console.log(`⚠️ Trimming to maxChips = ${maxChips}`);
-//         while (currentChips.length > maxChips) {
-//             const lastChip = getChips().pop();
-//             if (lastChip) lastChip.remove();
-//             currentChips.pop();
-//         }
-//     }
-
-//     // ---------- Determine success ----------
-//     let success = true;
-
-//     // exactChips (strongest constraint)
-//     if (typeof exactChips === 'number') {
-//         success &&= currentChips.length === exactChips;
-//         if (currentChips.length !== exactChips) {
-//             console.warn(`⚠️ exactChips constraint not met: ${currentChips.length}/${exactChips}`);
-//         }
-//     }
-
-//     // minChips
-//     if (typeof minChips === 'number') {
-//         success &&= currentChips.length >= minChips;
-//         if (currentChips.length < minChips) {
-//             console.warn(`⚠️ minChips constraint not met: ${currentChips.length}/${minChips}`);
-//         }
-//     }
-
-//     // maxChips (post-trim validation)
-//     if (typeof maxChips === 'number') {
-//         success &&= currentChips.length <= maxChips;
-//     }
-
-//     // No constraints → require at least one successful add
-//     if ( exactChips == null && minChips == null && maxChips == null ) {
-//         success = added.length > 0;
-//     }
-
-//     return { success, added: added, chips: currentChips };
-// }
-
-/**
- * 
- */
-
 export async function multiselect( inputLocator, values, chipContainerLocator, { chipSelector = 'li', selectAllRelated = false, radioThreshold = 85, maxChips = 'auto', minChips = null, exactChips = null, avoidDuplicates = true, timeout = 1500 } = {}) {
 
     if (!Array.isArray(values) || !values.length) {
