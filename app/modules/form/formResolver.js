@@ -228,7 +228,7 @@ export async function resolveATSQuestions(
 	// ------------------------------------------------------------------
 	// 🔹 Register Question for LLM Resolution
 	// ------------------------------------------------------------------
-	async function setLLMBucket(question, matchedQuestionCandidate, matchedLabelCandidates, { options = [], reason = "unknown", hint = None } = {}) {
+	async function setLLMBucket(question, matchedQuestionCandidate, matchedLabelCandidates, { options = [], hint = null, reason = "unknown" } = {}) {
 					
 		const qId = getQuestionId(question);
 
