@@ -201,7 +201,7 @@ Rules:
     if not supports_schema:
         scalar_prompt += f"""
 Response JSON schema:
-response_format = {_get_scalar_schema()}
+{json.dumps(_get_scalar_schema(), indent=2)}
 
 Response Format Example:
 {{
@@ -259,7 +259,7 @@ Rules:
     if not supports_schema:
         textarea_prompt += f"""
 Response JSON schema:
-{_get_textarea_schema()}
+{json.dumps(_get_textarea_schema(), indent=2)}
 
 Response Format Example:
 {{
@@ -321,7 +321,7 @@ The value must match exactly (case-sensitive).
         single_choice_prompt += f"""
 
 Response JSON schema:
-{schema}
+{json.dumps(schema, indent=2)}
 
 Example:
 {{
