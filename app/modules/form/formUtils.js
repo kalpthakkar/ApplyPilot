@@ -739,6 +739,9 @@ export async function syncContainersSimple({currentCount, targetCount, addButton
     
     const wait = ms => new Promise(r => setTimeout(r, ms));
 
+    console.log("💡💡💡 currentCount", currentCount);
+    console.log("💡💡💡 targetCount", targetCount);
+
     /* -------------------- ➕ ADD -------------------- */
     while (currentCount < targetCount) {
         const addBtn = document.querySelector(addButtonSelector);
@@ -761,6 +764,8 @@ export async function syncContainersSimple({currentCount, targetCount, addButton
 
         await wait(delay);
     }
+
+    await sleep(0.2);
 }
 
 /* --------------------------------------------------------------------------

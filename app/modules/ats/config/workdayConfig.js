@@ -73,12 +73,12 @@ export const SELECTORS = {
     },
     [WORKDAY_PAGES.EXP_PAGE] : {
         experiencePageIdentifier: `[data-automation-id="applyFlowMyExpPage"]`, // not in use
-        workExperienceGroup: `[aria-labelledby^="Work-"][aria-labelledby$="section"]`,
-        workExperienceContainers: `[aria-labelledby^="Work-"][aria-labelledby$="section"] > [role="group"]`,
-        workExperienceAddButton: `[aria-labelledby^="Work-"][aria-labelledby$="section"] [data-automation-id="add-button"]`,
+        workExperienceGroup: `[aria-labelledby^="Work-"][aria-labelledby$="section"], [aria-labelledby^="Professional-Experience"][aria-labelledby$="section"]`,
+        workExperienceContainers: `[aria-labelledby^="Work-"][aria-labelledby$="section"] > [role="group"], [aria-labelledby^="Professional-Experience"][aria-labelledby$="section"] > [role="group"]`,
+        workExperienceAddButton: `[aria-labelledby^="Work-"][aria-labelledby$="section"] [data-automation-id="add-button"], [aria-labelledby^="Professional-Experience"][aria-labelledby$="section"] [data-automation-id="add-button"]`,
         workExperienceDeleteButton: `:scope > div:first-of-type button`, // Delete selector in container
-        workExperienceDeleteButtons: `[aria-labelledby^="Work-"][aria-labelledby$="section"] > [role="group"] > div > button`,
-        workExperienceCurrentlyWorkingCheckboxes: `[aria-labelledby^="Work-"][aria-labelledby$="section"] > [role="group"] input[name="currentlyWorkHere"]`,
+        workExperienceDeleteButtons: `[aria-labelledby^="Work-"][aria-labelledby$="section"] > [role="group"] > div > button, [aria-labelledby^="Professional-Experience"][aria-labelledby$="section"] > [role="group"] > div > button`,
+        workExperienceCurrentlyWorkingCheckboxes: `[aria-labelledby^="Work-"][aria-labelledby$="section"] > [role="group"] input[name="currentlyWorkHere"], [aria-labelledby^="Professional-Experience"][aria-labelledby$="section"] > [role="group"] input[name="currentlyWorkHere"]`,
         educationGroup: `[aria-labelledby^="Education-"][aria-labelledby$="section"], [aria-labelledby^="Schooling-"][aria-labelledby$="section"]`,
         educationContainers: `[aria-labelledby^="Education-"][aria-labelledby$="section"] > [role="group"], [aria-labelledby^="Schooling-"][aria-labelledby$="section"] > [role="group"]`,
         educationAddButton: `[aria-labelledby^="Education-"][aria-labelledby$="section"] [data-automation-id="add-button"], [aria-labelledby^="Schooling-"][aria-labelledby$="section"] [data-automation-id="add-button"]`,
