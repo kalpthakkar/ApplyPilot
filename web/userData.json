@@ -15,6 +15,7 @@
   "otherURLs": [
     "https://scholar.google.com/citations?user=g7AQ9N0AAAAJ"
   ],
+  "llmResumeSelectionEnabled": true,
   "profile_html_card": "<div style='display: flex; justify-content: space-between; align-items: flex-start; gap: 40px; margin-bottom: 20px;'>\\n    <!-- First Section: Why This Isn’t Just Another Tech Profile -->\\n    <div style='flex: 1; flex-basis: 45%; background-color: #f9f9f9; padding: 20px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.07);'>\\n        <h3 style='color: #ff6f61; font-size: 18px; font-weight: 600; margin-bottom: 16px;'>💡 Why This Isn’t Just Another Tech Profile?</h3>\\n        <p style='font-size: 14px; color: #333; line-height: 1.6; margin-bottom: 0;'>Proven expertise in turning messy, multimodal data into decision-ready intelligence across smart cities, airports, healthcare, and AV ecosystems. From predictive infrastructure to edge AI and digital twins adoptions throughout industry, this isn’t just code - it’s operational impact at scale.</p>\\n    </div>\\n\\n    <!-- Second Section: Current or Previous Collaborations -->\\n    <div style='flex: 1; flex-basis: 55%; background-color: #f9f9f9; padding: 20px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.07);'>\\n        <h3 style='color: #ff6f61; font-size: 18px; font-weight: 600; margin-bottom: 16px;'>🔥 Current or Previous Collaborations</h3>\\n        <ul style='font-size: 14px; color: #333; line-height: 1.6; list-style-type: disc; padding-left: 20px;'>\\n            <li>Member of Open Geospatial Consortium (OGC)</li>\\n            <li>Urban Digital Twin Lab at SMST-UCF</li>\\n            <li>City of Altamonte Springs CraneRIDES AV</li>\\n            <li>IEEE SMC & Academia-Industry Summer School (Australia)</li>\\n            <li>UCF Research Group</li>\\n            <li>Startups, Universities, and Academic Labs</li>\\n        </ul>\\n    </div>\\n</div>",
   "enabledJobSkillsSelection": true,
   "skills": [
@@ -72,7 +73,6 @@
     ]
   },
   "llmAddressSelectionEnabled": false,
-  "llmResumeSelectionEnabled": false,
   "enabledUserSkillsSelection": false,
   "enabledRelatedSkillsSelection": false,
   "addresses": [

@@ -362,8 +362,6 @@ flex-direction: column;
 }
 
 
-
-
 /* Ensure the parent container takes up space in the document flow */
 .one-way-range {
   position: relative;

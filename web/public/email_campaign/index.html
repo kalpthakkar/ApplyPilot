@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>ApplyPilot – Email Campaign</title>
+		<!-- Tailwind CSS -->
+		<script src="https://cdn.tailwindcss.com"></script>
+		<!-- Bootstrap -->
+		<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+		<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+		<!-- Font Awesome Free CDN --> 
+		<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+		<link rel="stylesheet" href="style.css" />
+	</head>
+	<body class="min-h-screen flex flex-col">
+		<nav class="bg-white shadow-sm p-4">
+			<h1 class="text-2xl font-bold text-center text-gray-800" id="navTitle">Email Campaign</h1>
+		</nav>
+		<main class="flex-1 container mx-auto px-4 py-8 max-w-3xl mb-24">
+			<!-- Progress Tracker -->
+			<div class="flex justify-between items-center mb-8">
+				<div class="progress-step rounded-full w-8 h-8 flex items-center justify-center text-sm font-semibold" data-tooltip="Create a Trigger" id="step1"><i class="fas fa-tree" style="color: rgb(60 60 60 / 60%); font-size: 1.25rem;"></i></div>
+				<div class="w-12 border-t border-gray-300"></div>
+				<div class="progress-step rounded-full w-8 h-8 flex items-center justify-center text-sm font-semibold" data-tooltip="Add Context" id="step2"><i class="fas fa-shapes" style="color: rgb(60 60 60 / 60%); font-size: 1.25rem;"></i></div>
+				<div class="w-12 border-t border-gray-300"></div>
+				<div class="progress-step rounded-full w-8 h-8 flex items-center justify-center text-sm font-semibold" data-tooltip="Job Details" id="step3"><i class="fas fa-building" style="color: rgb(60 60 60 / 60%); font-size: 1.25rem;"></i></div>
+				<div class="w-12 border-t border-gray-300"></div>
+				<div class="progress-step rounded-full w-8 h-8 flex items-center justify-center text-sm font-semibold" data-tooltip="Add News" id="step4"><i class="fas fa-newspaper" style="color: rgb(60 60 60 / 60%); font-size: 1.25rem;"></i></div>
+				<div class="w-12 border-t border-gray-300"></div>
+				<div class="progress-step rounded-full w-8 h-8 flex items-center justify-center text-sm font-semibold" data-tooltip="Ask Referral" id="step5"><i class="fas fa-hand-holding-heart" style="color: rgb(60 60 60 / 60%); font-size: 1.25rem;"></i></div>
+				<div class="w-12 border-t border-gray-300"></div>
+				<div class="progress-step rounded-full w-8 h-8 flex items-center justify-center text-sm font-semibold" data-tooltip="Add Leads" id="step6"><i class="fas fa-users" style="color: rgb(60 60 60 / 60%); font-size: 1.25rem;"></i></div>
+				<div class="w-12 border-t border-gray-300"></div>
+				<div class="progress-step rounded-full w-8 h-8 flex items-center justify-center text-sm font-semibold" data-tooltip="Outreach Configuration" id="step7"><i class="fab fa-rocketchat" style="color: rgb(60 60 60 / 60%); font-size: 1.25rem;"></i></div>
+			</div>
+			<!-- FORM -->
+			<form id="multiStepForm" class="space-y-6">
+				<!-- 1️⃣ Trigger -->
+				<section class="form-section active" id="form-section-1">
+					<h2 class="text-xl font-semibold mb-4">
+						Create a Trigger
+						<span class="required">
+							<i class="fas fa-star-of-life"></i>
+						</span>
+					</h2>
+					<div class="grid md:grid-cols-1 gap-4">
+						<!-- Company Name -->
+						<div class="icon-contained-form-control-field" style="display: flex; align-items: center; gap: 0.75rem; border: 1px solid #ddd; border-radius: 6px; padding: 0.5rem 0.75rem; background: #fff;">
+							<i class="fa fa-globe text-gray-600" style="font-size: 1.25rem;"></i>
+							<div class="divider" style="width: 1px; height: 1.5rem; background: #ddd;"></div>
+							<input type="url" id="companyName" name="companyName" placeholder="Company Name" class="" style="flex: 1; border: none; outline: none; background: transparent; font-size: 0.95rem;" />
+						</div>
+
+						<center><div class="or or--x" aria-role="presentation">AND / OR</div></center>
+						
+						<!-- Linkedin Post URL -->
+						<div id="linkedinPostContainer" class="mb-3">
+							<div class="flex items-center justify-between mb-1">
+								<label class="block font-medium"></label>
+								<!-- Toggle -->
+								<div class="form-check form-switch" style="min-height: 0;">
+									<input class="form-check-input custom-tooltip" type="checkbox" id="emailLinkedinPostAuthor" name="emailLinkedinPostAuthor" data-tooltip="Email Author" />
+								</div>
+							</div>
+							<div class="icon-contained-form-control-field" style="display: flex; align-items: center; gap: 0.75rem; border: 1px solid #ddd; border-radius: 6px; padding: 0.5rem 0.75rem; background: #fff;">
+								<i class="fab fa-linkedin text-blue-600" style="font-size: 1.25rem;"></i>
+								<div class="divider" style="width: 1px; height: 1.5rem; background: #ddd;"></div>
+								<input type="url" id="linkedinPostURL" name="linkedinPostURL" placeholder="LinkedIn Post URL" class="" style="flex: 1; border: none; outline: none; background: transparent; font-size: 0.95rem;" />
+							</div>
+						</div>
+					</div>
+				</section>
+				<!-- 2️⃣ Context -->
+				<section class="form-section active" id="form-section-2">
+					<h2 class="text-xl font-semibold mb-4">Add Context</h2>
+					<div class="icon-contained-form-control-field mb-2" style="display: flex; align-items: center; gap: 0.75rem; border: 1px solid #ddd; border-radius: 6px; padding: 0.0rem 0.75rem; background: #fff;">
+						<i class="fas fa-quote-right text-gray-600" style="font-size: 1.25rem;"></i>
+						<div class="divider" style="width: 1px; height: 5.5rem; background: #ddd;"></div>
+						<textarea name="customContext" class="form-control" rows="5" placeholder="Context aware lead generation for more personalization...." onfocus="this.style.boxShadow='0 0 0 .25rem rgba(0,0,0,.0)'" style="flex: 1; border: none; outline: none; background: transparent; font-size: 0.95rem;"></textarea>
+					</div>
+				</section>
+				<!-- 3️⃣ Job Details -->
+				<section class="form-section" id="form-section-3">
+					<h2 class="text-xl font-semibold mb-4">Job Details</h2>
+					<div class="grid md:grid-cols-1 gap-4">
+						<!-- Job ID -->
+						<div class="icon-contained-form-control-field" style="display: flex; align-items: center; gap: 0.75rem; border: 1px solid #ddd; border-radius: 6px; padding: 0.0rem 0.75rem; background: #fff;">
+							<i class="fas fa-id-card text-gray-600" style="font-size: 1.25rem;"></i>
+							<div class="divider" style="width: 1px; height: 1.5rem; background: #ddd;"></div>
+							<input type="text" id="jobId" name="jobId" placeholder="Job ID" class="" style="flex: 1; border: none; outline: none; background: transparent; font-size: 0.95rem;" />
+						</div>
+
+						<center><div class="or or--x" aria-role="presentation">OR</div></center>
+						
+						<!-- Job Title -->
+						<div class="icon-contained-form-control-field" style="display: flex; align-items: center; gap: 0.75rem; border: 1px solid #ddd; border-radius: 6px; padding: 0.0rem 0.75rem; background: #fff;">
+							<i class="fas fa-heading text-gray-600" style="font-size: 1.25rem;"></i>
+							<div class="divider" style="width: 1px; height: 1.5rem; background: #ddd;"></div>
+							<input type="text" id="jobTitle" name="jobTitle" placeholder="Job Title" class="" style="flex: 1; border: none; outline: none; background: transparent; font-size: 0.95rem;" />
+						</div>
+						<!-- Job Location -->
+						<div class="icon-contained-form-control-field" style="display: flex; align-items: center; gap: 0.75rem; border: 1px solid #ddd; border-radius: 6px; padding: 0.0rem 0.75rem; background: #fff;">
+							<i class="fab fa-periscope text-gray-600" style="font-size: 1.25rem;"></i>
+							<div class="divider" style="width: 1px; height: 1.5rem; background: #ddd;"></div>
+							<input type="text" id="jobLocation" name="jobLocation" placeholder="Job Location (city, state, country)" class="" style="flex: 1; border: none; outline: none; background: transparent; font-size: 0.95rem;" />
+						</div>
+						<!-- Job Description -->
+						<div class="icon-contained-form-control-field" style="display: flex; align-items: center; gap: 0.75rem; border: 1px solid #ddd; border-radius: 6px; padding: 0.0rem 0.75rem; background: #fff;">
+							<i class="fas fa-paragraph text-gray-600" style="font-size: 1.25rem;"></i>
+							<div class="divider" style="width: 1px; height: 5.5rem; background: #ddd;"></div>
+							<textarea id="jobDescription" name="jobDescription" class="form-control placeholder-gray-400" rows="4" placeholder="Job Description" class="" onfocus="this.style.boxShadow='0 0 0 .25rem rgba(0,0,0,.0)'" style="flex: 1; border: none; outline: none; background: transparent; font-size: 0.95rem;"></textarea>
+						</div>
+				</section>
+				<!-- 4️⃣ News -->
+				<section class="form-section" id="form-section-4">
+					<h2 class="text-xl font-semibold mb-4">Add News</h2>
+					<div class="space-y-3">
+						<div class="icon-contained-form-control-field mb-2" style="display: flex; align-items: center; gap: 0.75rem; border: 1px solid #ddd; border-radius: 6px; padding: 0.0rem 0.75rem; background: #fff;">
+							<i class="fas fa-newspaper text-gray-600" style="font-size: 1.25rem;"></i>
+							<div class="divider" style="width: 1px; height: 5.5rem; background: #ddd;"></div>
+							<textarea id="newsDescription" name="newsDescription" class="form-control placeholder-gray-400" rows="5" placeholder="Company's News..." class="" onfocus="this.style.boxShadow='0 0 0 .25rem rgba(0,0,0,.0)'" style="flex: 1; border: none; outline: none; background: transparent; font-size: 0.95rem;"></textarea>
+						</div>
+						<div class="mb-2">
+							<label class="block font-medium mb-2">Auto Scrape Company's News</label>
+							<div class="toggle-btn">
+								<input type="radio" id="autoScrapeNews-yes" name="autoScrapeNews" value="true" />
+								<label for="autoScrapeNews-yes">Yes</label>
+								<input type="radio" id="autoScrapeNews-no" name="autoScrapeNews" value="false" />
+								<label for="autoScrapeNews-no">No</label>
+							</div>
+						</div>
+					</div>
+
+				</section>
+				<!-- 5️⃣ Referral -->
+				<section class="form-section" id="form-section-5">
+					<h2 class="text-xl font-semibold mb-4">Ask Referral</h2>
+					<div class="icon-contained-form-control-field" style="display: flex; align-items: center; gap: 0.75rem; border: 1px solid #ddd; border-radius: 6px; padding: 0.0rem 0.75rem; background: #fff;">
+						<i class="fas fa-share-alt text-gray-600" style="font-size: 1.25rem;"></i>
+						<div class="divider" style="width: 1px; height: 1.5rem; background: #ddd;"></div>
+						<input type="text" id="referralJobURL" name="referralJobURL" placeholder="Job URL" class="" style="flex: 1; border: none; outline: none; background: transparent; font-size: 0.95rem;" />
+					</div>
+				</section>
+				<!-- 6️⃣ Add Leads -->
+				<section class="form-section" id="form-section-6">
+						<h2 class="text-xl font-semibold mb-4">Add Leads</h2>
+
+						<!-- Additional Leads Identifiers -->
+						<div id="additionalLeadIdentifiersContainer" class="mb-3">
+							<div class="flex items-center" style="display: flex; justify-content: space-between; align-items: center;">
+								<!-- Label on the left -->
+								<label class="font-medium mb-2" for="additionalLeadIdentifiers" style="margin-right: 10px;">Additional Leads Identifiers</label>
+							</div>
+							<div data-component="free-multiselect" class="p-0">
+								<div class="w-full multiselect-wrapper">
+									<input type="text" id="additionalLeadIdentifiers" placeholder="Email, Full Name, or LinkedIn Profile" name="additionalLeadIdentifiers[]" class="form-control pl-3 flex-1 min-w-[120px]" autocomplete="off" />
+									<div class="chips-container chips-container-floater flex flex-wrap gap-2"></div>
+								</div>
+							</div>
+						</div>
+
+						<!-- Append Historical Leads -->
+						<div class="mb-2">
+							<div>
+								<label class="font-medium mb-2">Append Historical Leads</label>
+								<div class="custom-tooltip" data-tooltip="Include leads from other campaign belonging to same company">
+									<i class="fas fa-info-circle ml-1"></i>
+								</div>
+							</div>
+							<div class="toggle-btn">
+								<input type="radio" id="appendHistoricalLeads-yes" name="appendHistoricalLeads" value="true" />
+								<label for="appendHistoricalLeads-yes">Yes</label>
+								<input type="radio" id="appendHistoricalLeads-no" name="appendHistoricalLeads" value="false" />
+								<label for="appendHistoricalLeads-no">No</label>
+							</div>
+						</div>
+
+						<!-- Email Company Representatives -->
+						<div class="mb-2">
+							<div>
+								<label class="font-medium mb-2">
+									Email Company Representatives 
+									<span class="required">
+										<i class="fas fa-star-of-life"></i>
+									</span>
+								</label>
+								<div class="custom-tooltip" data-tooltip="Email other people at the company">
+									<i class="fas fa-info-circle ml-1"></i>
+								</div>
+							</div>
+							<div class="toggle-btn">
+								<input type="radio" id="emailCompanyRepresentatives-yes" name="emailCompanyRepresentatives" value="true" />
+								<label for="emailCompanyRepresentatives-yes">Yes</label>
+								<input type="radio" id="emailCompanyRepresentatives-no" name="emailCompanyRepresentatives" value="false" />
+								<label for="emailCompanyRepresentatives-no">No</label>
+							</div>
+						</div>
+
+
+						<!-- Representative Sub-section -->
+						<div id="representativeSubsection">
+						
+							<!-- Representative Titles -->
+							<div id="representativeTitlesContainer" class="mb-2">
+								<div class="flex items-center" style="display: flex; justify-content: space-between; align-items: center;">
+									<!-- Label on the left -->
+									<label class="block font-medium mb-2" for="representativeTitles" style="margin-right: 10px;">Representative Titles</label>
+								</div>
+								<div data-component="free-multiselect" class="p-0">
+									<div class="w-full multiselect-wrapper">
+										<input type="text" id="representativeTitles" placeholder="Select..." name="representativeTitles[]" class="form-control pl-3 flex-1 min-w-[120px]" autocomplete="off" />
+										<div class="chips-container chips-container-floater flex flex-wrap gap-2"></div>
+									</div>
+								</div>
+							</div>
+
+							<!-- Additional Leads Count -->
+							<div id="additionalLeadsCountContainer" class="mb-2">
+								<label class="block font-medium mb-2" for="additionalLeadsCount" style="margin-right: 10px;">Additional Leads Count</label>
+								<div class="icon-contained-form-control-field" style="display: flex; align-items: center; gap: 0.75rem; border: 1px solid #ddd; border-radius: 6px; padding: 0.0rem 0.75rem; background: #fff;">
+									<i class="fas fa-hashtag text-gray-600" style="font-size: 1.05rem;"></i>
+									<div class="divider" style="width: 1px; height: 1.5rem; background: #ddd;"></div>
+									<input type="number" name="additionalLeadsCount" placeholder="" class="form-control w-full md:w-2/5" onfocus="this.style.boxShadow='0 0 0 .25rem rgba(0,0,0,.0)'" style="flex: 1; border: none; outline: none; background: transparent; font-size: 0.95rem;" id="additionalLeadsCount" />
+								</div>
+							</div>
+
+							<!-- Unique Leads Only -->
+							<div class="mb-2">
+								<div>
+									<label class="font-medium mb-2">Unique Leads Only</label>
+									<div class="custom-tooltip" data-tooltip="Ignore leads already outreached through past campaigns">
+										<i class="fas fa-info-circle ml-1"></i>
+									</div>
+								</div>
+								<div class="toggle-btn">
+									<input type="radio" id="uniqueLeadsOnly-yes" name="uniqueLeadsOnly" value="true" />
+									<label for="uniqueLeadsOnly-yes">Yes</label>
+									<input type="radio" id="uniqueLeadsOnly-no" name="uniqueLeadsOnly" value="false" />
+									<label for="uniqueLeadsOnly-no">No</label>
+								</div>
+							</div>
+						</div>
+				</section>
+				<!-- 7️⃣ Outreach Configuration -->
+				<section class="form-section" id="form-section-7">
+					<h2 class="text-xl font-semibold mb-4">Outreach Configuration</h2>
+
+					<!-- Send Personalized Email -->
+					<div class="mb-2">
+						<div>
+							<label class="font-medium mb-2">Send Personalized Email</label>
+							<div class="custom-tooltip" data-tooltip="Enables unique email per recipient; otherwise keeps one common email body for all recipient">
+								<i class="fas fa-info-circle ml-1"></i>
+							</div>
+						</div>
+						<div class="toggle-btn">
+							<input type="radio" id="sendPersonalizedEmail-yes" name="sendPersonalizedEmail" value="true" />
+							<label for="sendPersonalizedEmail-yes">Yes</label>
+							<input type="radio" id="sendPersonalizedEmail-no" name="sendPersonalizedEmail" value="false" />
+							<label for="sendPersonalizedEmail-no">No</label>
+						</div>
+					</div>
+
+					<!-- Add Documents -->
+					<div class="mb-2">
+						<div>
+							<label class="font-medium mb-2">Add Documents</label>
+							<div class="custom-tooltip" data-tooltip="Select value proposition documents to send as attachment">
+								<i class="fas fa-info-circle ml-1"></i>
+							</div>
+						</div>
+						<div class="toggle-btn">
+							<input type="checkbox" id="addDocuments-companyAnalysis" name="addDocuments" value="companyAnalysis" />
+							<label for="addDocuments-companyAnalysis">Company Analysis</label>
+							<input type="checkbox" id="addDocuments-competitorAndIndustryAnalysis" name="addDocuments" value="competitorAndIndustryAnalysis" />
+							<label for="addDocuments-competitorAndIndustryAnalysis">Competitor and Industry Analysis</label>
+							<input type="checkbox" id="addDocuments-improvementSuggestion" name="addDocuments" value="improvementSuggestion" />
+							<label for="addDocuments-improvementSuggestion">Improvement Suggestion</label>
+							<input type="checkbox" id="addDocuments-valueTeardown" name="addDocuments" value="valueTeardown" />
+							<label for="addDocuments-valueTeardown">Value Teardown</label>
+							<input type="checkbox" id="addDocuments-306090DayPlan" name="addDocuments" value="306090DayPlan" />
+							<label for="addDocuments-306090DayPlan">30-60-90 Day Plan</label>
+						</div>
+					</div>
+
+
+					<!-- FollowUps Count -->
+					<div class="mb-2">
+						<div>
+							<label class="font-medium mb-2">
+								FollowUps Count
+								<span class="required">
+									<i class="fas fa-star-of-life"></i>
+								</span>
+							</label>
+						</div>
+						<div class="toggle-btn">
+							<input type="radio" id="followupsCount-1" name="followupsCount" value="1" />
+							<label for="followupsCount-1">1</label>
+							<input type="radio" id="followupsCount-2" name="followupsCount" value="2" />
+							<label for="followupsCount-2">2</label>
+							<input type="radio" id="followupsCount-3" name="followupsCount" value="3" />
+							<label for="followupsCount-3">3</label>
+							<input type="radio" id="followupsCount-4" name="followupsCount" value="4" />
+							<label for="followupsCount-4">4</label>
+							<input type="radio" id="followupsCount-5" name="followupsCount" value="5" />
+							<label for="followupsCount-5">5</label>
+						</div>
+					</div>
+
+					<!-- FollowUps Padding Days -->
+                    <div class="mb-2">
+                        <label class="font-medium mb-2">FollowUps Padding Days</label>
+
+						<div class="toggle-btn">
+							<input type="radio" id="followupsPaddingMode-auto" name="followupsPaddingMode" value="auto" />
+							<label for="followupsPaddingMode-auto">Auto</label>
+							<input type="radio" id="followupsPaddingMode-custom" name="followupsPaddingMode" value="custom" />
+							<label for="followupsPaddingMode-custom">Custom</label>
+						</div>
+
+                        <div class="one-way-range" id="followupsPaddingDays">
+                            <!-- Track (the background line) -->
+                            <div class="track"></div>
+
+                            <!-- The range (the area between the thumb and right boundary) -->
+                            <div class="range"></div>
+
+                            <!-- Left thumb (draggable) -->
+                            <div class="thumb left custom-tooltip" data-tooltip="0" tabindex="0"></div>
+                        </div>
+                    </div>
+
+					<!-- Zone -->
+					<div class="mb-3">
+						<label class="block font-medium mb-2">
+							Zone
+							<span class="required">
+								<i class="fas fa-star-of-life"></i>
+							</span>
+						</label>
+						<div class="multi-select-container" id="zone" data-multiselect-options>
+							<!-- Wrap chips + input together -->
+							<div class="multiselect-wrapper flex flex-wrap items-center" style="width:100%;">
+								<div class="chips-container flex flex-wrap gap-2"></div>
+								<input type="text" placeholder="Select..." name="zone[]" class="pl-0 py-0 border-none focus:ring-0 outline-none flex-1 min-w-[120px]" autocomplete="off" style="width:100%;" />
+								<!-- Dropdown options list -->
+								<ul class="absolute left-0 right-0 mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-40 overflow-y-auto hidden z-50" style="z-index: 9999; height: 120px;" data-options-list>
+								</ul>
+							</div>
+						</div>
+					</div>
+
+					<!-- Days -->
+					<div class="mb-2">
+						<div>
+							<label class="font-medium mb-2">
+								Days
+								<span class="required">
+									<i class="fas fa-star-of-life"></i>
+								</span>
+							</label>
+						</div>
+						<div class="toggle-btn">
+							<input type="checkbox" id="days-Monday" name="days" value="Monday" />
+							<label for="days-Monday">Monday</label>
+							<input type="checkbox" id="days-Tuesday" name="days" value="Tuesday" />
+							<label for="days-Tuesday">Tuesday</label>
+							<input type="checkbox" id="days-Wednesday" name="days" value="Wednesday" />
+							<label for="days-Wednesday">Wednesday</label>
+							<input type="checkbox" id="days-Thursday" name="days" value="Thursday" />
+							<label for="days-Thursday">Thursday</label>
+							<input type="checkbox" id="days-Friday" name="days" value="Friday" />
+							<label for="days-Friday">Friday</label>
+							<input type="checkbox" id="days-Saturday" name="days" value="Saturday" />
+							<label for="days-Saturday">Saturday</label>
+							<input type="checkbox" id="days-Sunday" name="days" value="Sunday" />
+							<label for="days-Sunday">Sunday</label>
+						</div>
+					</div>
+
+					<!-- Time -->
+					<div class="mb-2">
+						<div>
+							<label class="font-medium mb-2">
+								Time
+								<span class="required">
+									<i class="fas fa-star-of-life"></i>
+								</span>
+							</label>
+						</div>
+
+						<div class="toggle-btn">
+							<input type="radio" id="timeRange-allDay" name="timeRange" value="allDay" />
+							<label for="timeRange-allDay">All Day</label>
+							<input type="radio" id="timeRange-custom" name="timeRange" value="custom" />
+							<label for="timeRange-custom">Custom</label>
+						</div>
+
+						<div class="grid md:grid-cols-2 gap-4 max-w-sm">
+							<input type="time" class="form-control" name="startTime" id="startTime" />
+							<input type="time" class="form-control" name="endTime" id="endTime"/>
+						</div>
+					</div>
+
+
+
+
+
+					
+				</section>
+				<!-- 0️⃣ 1️⃣ 2️⃣ 3️⃣ 4️⃣ 5️⃣ 6️⃣ 7️⃣ 8️⃣ 9️⃣ 🔟 -->
+			</form>
+		</main>
+		<!-- Fixed Bottom Nav -->
+		<div class="fixed-nav flex justify-between">
+			<button type="button" id="prevBtn" class="btn btn-outline-secondary" disabled>Previous</button>
+			<div class="ajax-button">
+				<div class="fa fa-check done"></div>
+				<div class="fa fa-close failed"></div>
+				<button type="button" id="nextBtn" class="btn btn-primary submit">Next</button>
+			</div>
+		</div>
+
+		<ul class="notifications" id="progressErrorNotifications"></ul>
+
+		<script src="script.js" defer></script>
+		<script src="app.js" defer></script>
+	</body>
+</html>

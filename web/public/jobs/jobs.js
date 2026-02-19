@@ -4,7 +4,7 @@
 const PROJECT_ID = "owvajbjbqhhwcznymirg";
 const API_KEY = "sb_publishable_pIq55b08XKZMnqa2-JdUdQ_Jin36ree";
 const BASE_URL = `https://${PROJECT_ID}.supabase.co/rest/v1/json_store`;
-const API_BASE = 'http://10.108.175.198:5001';
+const API_BASE = 'http://10.0.0.199:5001';
 const RPC_URL = `https://${PROJECT_ID}.supabase.co/rest/v1/rpc`;
 
 const PAGE_SIZE = 20;
@@ -367,9 +367,6 @@ function formatSalaryRange(job) {
 }
 
 
-
-
-
 /* ======================================================
    MODAL
 ====================================================== */
@@ -478,7 +475,7 @@ document.addEventListener("click", async (e) => {
    NOT INTERESTED (SOFT DELETE)
 ====================================================== */
 // Temporary stack to hold "undoable" jobs
-const undoNotifications = document.getElementById("undoNotifications");
+const progressErrorNotifications = document.getElementById("undoNotifications");
 
 document.addEventListener("click", async (e) => {
   const btn = e.target.closest(".not-interested-btn");
@@ -517,7 +514,7 @@ document.addEventListener("click", async (e) => {
   }
 
   // Undo toast
-  createUndoToast(
+  createProgressErrorToast(
     job,
     async () => {
       // Restore UI
@@ -552,7 +549,7 @@ document.addEventListener("click", async (e) => {
 
 
 // Example toast/snackbar
-function createUndoToast(job, undoCallback, timeout = 5000) {
+function createProgressErrorToast(job, undoCallback, timeout = 5000) {
 
   const toast = document.createElement("li");
   toast.className = "toast";
@@ -569,20 +566,20 @@ function createUndoToast(job, undoCallback, timeout = 5000) {
   `;
 
   // Append toast
-  undoNotifications.appendChild(toast);
+  progressErrorNotifications.appendChild(toast);
 
   // Undo button
   toast.querySelector(".undo-btn").addEventListener("click", () => {
     clearTimeout(toast.timeoutId);
-    removeUndoToast(toast);
+    removeProgressErrorToast(toast);
     if (undoCallback) undoCallback();
   });
 
   // Auto remove
-  toast.timeoutId = setTimeout(() => removeUndoToast(toast), timeout);
+  toast.timeoutId = setTimeout(() => removeProgressErrorToast(toast), timeout);
 }
 
-function removeUndoToast(toast) {
+function removeProgressErrorToast(toast) {
 	toast.classList.add("hide");
 	setTimeout(() => {
 		if (toast.parentElement) toast.parentElement.removeChild(toast);

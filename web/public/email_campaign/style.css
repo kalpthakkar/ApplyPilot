@@ -1,0 +1,939 @@
+/* --------------------------------------- */
+/* ---------------- Basic ---------------- */
+/* --------------------------------------- */
+body {
+    background: #f9fafb;
+    font-family: 'Inter', sans-serif;
+}
+
+#navTitle {
+    user-select: none;       /* Disable text selection */
+    -webkit-user-select: none; /* Safari */
+    -moz-user-select: none;   /* Firefox */
+    -ms-user-select: none;    /* IE/Edge */
+}
+
+.form-section {
+    display: none;
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+.form-section.active {
+    display: block;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+.progress-step {
+    user-select: none;       /* Disable text selection */
+    -webkit-user-select: none; /* Safari */
+    -moz-user-select: none;   /* Firefox */
+    -ms-user-select: none;    /* IE/Edge */
+    cursor: pointer;          /* Indicates interactivity */
+    transition: background 0.3s ease, color 0.2s ease;
+}
+
+.progress-step:hover {
+  background: #374151 !important;     /* slightly darker */
+  color: #ffffff !important;             /* readable text on hover */
+}
+
+.progress-step:hover i {
+  color: inherit !important;
+  cursor: pointer;
+}
+
+.progress-step.active {
+    background-color: #ffffff !important;
+    color: rgb(60 60 60 / 60%);
+}
+
+.progress-step.active i {
+    color: rgb(0 0 0 / 75%) !important;
+}
+
+/* Base tooltip container */
+.progress-step[data-tooltip] {
+  position: relative;
+  cursor: pointer;
+}
+
+/* Tooltip text */
+.progress-step[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  top: -2.8rem; /* above the element */
+  left: 50%;
+  transform: translateX(-50%) translateY(0);
+  background-color: rgba(0, 0, 0, 0.95);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 0.35rem 0.6rem;
+  border-radius: 6px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.25s ease, transform 0.25s ease, visibility 0.25s;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 100;
+}
+
+/* Show tooltip on hover */
+.progress-step[data-tooltip]:hover::after,
+.progress-step[data-tooltip]:hover::before {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(-4px); /* smooth lift */
+}
+
+
+
+/* ---------------------------------------- */
+/* ----- Navigation buttons at bottom ----- */
+/* ---------------------------------------- */
+.fixed-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    /* lower than modal */
+    background: white;
+    padding: 1rem;
+    border-top: 1px solid #e5e7eb;
+}
+
+/* Submit Button Loading Animation */
+/* Container */
+/* ------------------------------- */
+/* --- Submit Button Animation --- */
+/* ------------------------------- */
+
+.ajax-button {
+    position: relative;
+    display: inline-block;
+}
+
+/* Button base */
+.submit {
+    position: relative;
+    z-index: 2;
+    transition: all 0.3s ease;
+}
+
+/* Keep button width consistent while loading */
+.submit.loading {
+    background-color: transparent;
+    border-color: transparent;
+    color: transparent;
+}
+
+/* Centered spinner pseudo-element (attached to button itself) */
+.submit.loading::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 24px;
+    height: 24px;
+    margin: -12px 0 0 -12px;
+    /* center offset */
+    border-radius: 50%;
+    border: 3px solid #000;
+    border-bottom-color: transparent;
+    border-left-color: transparent;
+    animation: rotateAnimation 1s linear infinite;
+}
+
+/* Font Awesome icons centered over button */
+.ajax-button .fa {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0);
+    transition: transform 0.3s ease, opacity 0.3s ease;
+    color: #000;
+    font-size: 18px;
+    z-index: 3;
+    pointer-events: none;
+}
+
+/* Show icon */
+.finish {
+    transform: translate(-50%, -50%) scale(1) !important;
+}
+
+/* Hide spinner smoothly */
+.hide-loading {
+    opacity: 0;
+    transform: scale(0);
+}
+
+@keyframes rotateAnimation {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+
+/* ---------------------------------------- */
+/* -------------- Text Field -------------- */
+/* ---------------------------------------- */
+input[type="text"] {
+    padding: 0.5rem 0.75rem;
+}
+
+/* ---------------------------------------- */
+/* ------------ Password Field ------------ */
+/* ---------------------------------------- */
+
+.password-toggle i:hover {
+  color: #0d6efd;
+}
+
+/* ---------------------------------------- */
+/* ------------ Toggle Buttons ------------ */
+/* ---------------------------------------- */
+.toggle-btn input[type="radio"],
+.toggle-btn input[type="checkbox"] {
+    display: none;
+}
+
+.toggle-btn label {
+    cursor: pointer;
+    border: 1px solid #d1d5db;
+    padding: 0.4rem 1rem;
+    border-radius: 0.375rem;
+    margin-right: 0.4rem;
+    margin-bottom: 0.4rem;
+    display: inline-block;
+    background: white;
+    color: #374151;
+    font-size: 0.9rem;
+    transition: all 0.15s ease;
+}
+
+.toggle-btn input:checked+label {
+    background: #2563eb;
+    color: white;
+    border-color: #2563eb;
+}
+
+
+/* ---------------------------------------- */
+/* ---------- Multi-select Chips ---------- */
+/* ---------------------------------------- */
+.multi-select-container {
+    border: 1px solid #d1d5db;
+    border-radius: 0.375rem;
+    padding: 0.5rem;
+    background: white;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.multiselect-wrapper:has(.chips-container:not(:empty)) {
+    /* display: flex;
+flex-direction: column;
+*/
+    row-gap: 0.5rem;
+    padding: 0.3rem;
+}
+
+.chips-container-floater:not(:empty) {
+    margin-top: 0.5rem;
+    /* or whatever mt-2 represents */
+}
+
+.multi-select-container:focus-within {
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.1);
+}
+
+.chip {
+    display: inline-flex;
+    align-items: center;
+    background-color: #2563eb;
+    color: white;
+    border-radius: 9999px;
+    padding: 0.25rem 0.75rem;
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+
+.chip button {
+    background: none;
+    border: none;
+    color: white;
+    margin-left: 0.4rem;
+    cursor: pointer;
+    font-size: 0.8rem;
+}
+
+/* ---------------------------------------- */
+/* ----------- Modal Visibility ----------- */
+/* ---------------------------------------- */
+.custom-modal {
+    transition: opacity 300ms ease;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.custom-modal.show {
+    opacity: 1 !important;
+    pointer-events: auto !important;
+}
+
+.custom-modal .modal-inner {
+    max-height: 80vh;
+    /* Limit modal height to 80% of viewport */
+    overflow-y: auto;
+    /* Scroll content inside when it overflows */
+    overscroll-behavior: contain;
+    /* Prevent scroll chaining to background */
+}
+
+.custom-modal .modal-inner::-webkit-scrollbar {
+    width: 6px;
+}
+
+.custom-modal .modal-inner::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    /* Tailwind's slate-300 */
+    border-radius: 9999px;
+}
+
+.custom-modal .modal-inner:hover::-webkit-scrollbar-thumb {
+    background: #94a3b8;
+    /* slate-400 on hover */
+}
+
+
+
+
+
+
+
+
+/* ---------------------------------------- */
+/* ----------------- Date ----------------- */
+/* ---------------------------------------- */
+.input-inline-label, .date-field {
+    display: flex;
+    align-items: center;
+    padding: 4px 10px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    background: #fff;
+}
+
+.input-inline-label span, .date-field span {
+    color: #555;
+    font-size: 0.95rem;
+    margin-right: 8px;
+    white-space: nowrap;
+    cursor: none;
+    user-select: none;
+}
+
+.input-inline-label .divider, .date-field .divider {
+    width: 1px;
+    height: 22px;
+    background-color: #ccc;
+    margin-right: 8px;
+}
+
+.input-inline-label input, .date-field input {
+    border: none;
+    outline: none;
+    font-size: 0.95rem;
+    padding: 4px 0;
+}
+
+.date-field input::-webkit-calendar-picker-indicator {
+    cursor: pointer;
+}
+
+/* Optional hover/focus style */
+.input-inline-label:focus-within, .date-field:focus-within {
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.1);
+}
+
+/* ----------------------------------------- */
+/* --------------- URL Field --------------- */
+/* ----------------------------------------- */
+.icon-contained-form-control-field:focus-within {
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.1);
+}
+
+
+/* ----------------------------------------- */
+/* ---------- Primary Resume Star ---------- */
+/* ----------------------------------------- */
+.star-btn {
+  background: none;
+  border: none;
+  padding: 4px;        /* small clickable area */
+  cursor: pointer;
+  line-height: 0;
+  display: flex;
+  align-items: center; /* vertical center */
+  justify-content: center;
+  margin-left: 0.5rem; /* space from Remove button */
+}
+
+.star-btn svg {
+  width: 25px;         /* small size */
+  height: 25px;
+  fill: transparent;
+  stroke: #6b7280;     /* neutral gray */
+  stroke-width: 1.5;
+  transition: fill 160ms ease, stroke 160ms ease;
+}
+
+/* Hover & active */
+.star-btn:hover svg {
+  stroke: #374151;
+}
+
+.star-btn.active svg {
+  fill: #f5c518;       /* flat yellow */
+  stroke: #f5c518;
+}
+
+/* Press feedback */
+.star-btn:active svg {
+  transform: scale(0.94);
+}
+
+/* Keyboard focus for accessibility */
+.star-btn:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 3px;
+}
+
+.star-btn[data-tooltip] {
+  position: relative;
+  display: inline-block;
+}
+
+/* Tooltip bubble */
+.star-btn[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  top: calc(100% + 10px); /* below element */
+  left: 50%;
+  transform: translateX(-50%) translateY(-4px) scale(0.98);
+
+  background: rgba(20, 20, 20, 0.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+
+  color: #f9fafb;
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 1.05rem 0.8rem;
+  border-radius: 10px;
+  white-space: nowrap;
+
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.25s ease,
+    transform 0.25s cubic-bezier(.4,0,.2,1);
+  pointer-events: none;
+  z-index: 100;
+}
+
+/* Arrow */
+.star-btn[data-tooltip]::before {
+  content: '';
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 50%;
+  transform: translateX(-50%);
+
+  border-width: 6px;
+  border-style: solid;
+  border-color: transparent transparent rgba(20, 20, 20, 0.85) transparent;
+
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.25s ease;
+  z-index: 99;
+}
+
+/* Hover state */
+.star-btn[data-tooltip]:hover::after,
+.star-btn[data-tooltip]:hover::before {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(6px) scale(1);
+}
+
+
+
+/* ----------------------------------------- */
+/* ---------------- Tooltip ---------------- */
+/* ----------------------------------------- */
+
+
+/* Base tooltip container */
+.custom-tooltip[data-tooltip] {
+  position: relative;
+  cursor: pointer;
+  line-height: 1.2em;
+  display: inline-block;
+}
+
+/* Tooltip text (glass effect) */
+.custom-tooltip[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: 100%;              /* above element */
+  left: 50%;
+  transform: translateX(-50%) translateY(0);
+  margin-bottom: 10px;
+
+  display: inline-block;      /* allow width to expand */
+  min-width: 200px;           /* optional minimum width */
+  max-width: 400px;           /* constrain max width */
+  white-space: normal;        /* allow wrapping */
+  word-break: break-word;     /* break long words */
+
+  text-align: center;
+
+  background: rgba(255,255,255,0.95);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: #000;
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 0.4rem 0.8rem;
+  border-radius: 12px;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+  border: 1px solid rgba(255,255,255,0.25);
+
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  z-index: 100;
+}
+
+
+.thumb.custom-tooltip[data-tooltip]::after {
+    min-width: 30px;
+    max-width: 50px;
+}
+
+
+/* Tooltip arrow (glass style) */
+.custom-tooltip[data-tooltip]::before {
+  content: '';
+  position: absolute;
+
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+
+  border-width: 6px;
+  border-style: solid;
+  border-color: rgba(255, 255, 255, 0.15) transparent transparent transparent;
+
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease;
+}
+
+
+/* Show tooltip on hover */
+.custom-tooltip[data-tooltip]:hover::after,
+.custom-tooltip[data-tooltip]:hover::before {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(-6px); /* gentle lift */
+}
+
+
+
+/* ----------------------------------------- */
+/* -------------- Range Slider -------------- */
+/* ----------------------------------------- */
+
+.range-container {
+    width: 100%;
+}
+
+.track {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    height: 6px;
+    width: 100%;
+    background: #e5e7eb;
+    border-radius: 3px;
+}
+
+.range {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    height: 6px;
+    background: #2563eb;
+    border-radius: 3px;
+}
+
+.dual-range {
+    position: relative;
+    height: 36px;
+    user-select: none;
+    overflow: visible; /* ✅ IMPORTANT */
+}
+
+.thumb {
+    position: absolute !important;
+    top: 50%;
+    width: 16px;
+    height: 16px;
+    background: #2563eb;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    cursor: pointer;
+    z-index: 10;
+}
+
+/* Ensure the parent container takes up space in the document flow */
+.one-way-range {
+  position: relative;
+  display: block;  /* Makes the slider take up space in the layout */
+  width: 90%;  /* Ensure it takes up full width of its parent */
+  margin-top: 1rem;  /* Add spacing if needed */
+  margin-bottom: 4rem;
+  justify-self: center;
+}
+
+
+/* ----------------------------------------- */
+/* ----------------- Icons ----------------- */
+/* ----------------------------------------- */
+.fab,
+.fas,
+.fa-solid {
+    cursor: none;
+    user-select: none;
+}
+
+.fa-info-circle {
+    cursor: pointer;
+}
+
+
+/* ---------------------------------------- */
+/* --------------- Template --------------- */
+/* ---------------------------------------- */
+[name="phoneExtension"],
+[name="jobLocationType[]"],
+[name="jobType[]"],
+[name="resumeState[]"],
+[name="resumeCountry[]"],
+[name="useSkills"],
+[name="useSalaryRange"] {
+    cursor: pointer;
+}
+
+
+
+/* ----------------------------------------- */
+/* --------------- Splitters --------------- */
+/* ----------------------------------------- */
+
+/* "#009688"
+"#607d8b"
+"#673ab7"
+"#ff6f61"
+"#388e3c"
+"#00bcd4"
+"#fbc02d"
+"#9c27b0"
+"#ffb74d"
+"#3f51b5"
+"#424242"
+"#cddc39"
+"#ff5722" */
+
+.or {
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #616161;
+    font-size: 0.85em;
+    margin: 1em 4em;
+}
+
+/* Base styles */
+.or::before,
+.or::after {
+    content: "";
+}
+
+
+/* Horizontal */
+.or--x {
+    /* max-width: 30em; */
+    width: 30em;
+}
+
+.or--x::before,
+.or--x::after {
+    position: relative;
+    border-top: 1px solid #ccc;
+    display: inline-block;
+    vertical-align: middle;
+    width: 50%;
+    margin-bottom: 0.15em;
+    overflow: hidden;
+}
+
+.or--x::before {
+    right: 0.5em;
+    margin-left: -50%;
+}
+
+.or--x::after {
+    left: 0.5em;
+    margin-right: -50%;
+}
+
+
+/* 
+    Vertical 
+    Requires a height to be set on this element or its parent.
+*/
+.or--y {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100%;
+    height: 4em;
+}
+
+/* 
+    Absolutely position each pseudo element, and calculate
+    a height shorter than 50% using em units to create space
+    around the text and allows divider line height to scale 
+    based on parent element divider height.
+*/
+.or--y::before,
+.or--y::after {
+    position: absolute;
+    border-left: 1px solid #ccc;
+    height: calc(50% - 0.85em);
+    left: 50%;
+    margin-left: -1px;
+}
+
+/* ::before on top */
+.or--y::before {
+    top: 0;
+}
+
+/* ::after on bottom */
+.or--y::after {
+    bottom: 0;
+}
+
+
+/*-----------------------------------------------------------------------------------*/
+/*----------------------------  PROGRESS ERROR TOAST  -------------------------------*/
+/*-----------------------------------------------------------------------------------*/
+.notifications {
+	position: fixed;
+	top: 30px;
+	right: 20px;
+	z-index: 9999;
+}
+
+.notifications .toast {
+	width: 350px;
+	position: relative;
+	overflow: hidden;
+	list-style: none;
+	border-radius: 4px;
+	padding: 16px 17px;
+	margin-bottom: 10px;
+	background: #fff;
+	color: #333;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	animation: show_toast 0.3s ease forwards;
+	box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+	font-family: 'Poppins', sans-serif;
+}
+
+.toast.hide {
+	animation: hide_toast 0.3s ease forwards;
+}
+
+@keyframes show_toast {
+	0% { transform: translateX(100%); }
+	100% { transform: translateX(0); }
+}
+
+@keyframes hide_toast {
+	0% { transform: translateX(0); opacity:1; }
+	100% { transform: translateX(120%); opacity:0; }
+}
+
+/* Timeline bar */
+.toast::before {
+	position: absolute;
+	content: '';
+	height: 3px;
+	width: 100%;
+	bottom: 0;
+	left: 0;
+	background: #ff5722;
+	animation: progress var(--toast-duration, 5000ms) linear forwards;
+}
+
+@keyframes progress {
+	100% { width: 0%; }
+}
+
+.toast .toast-content {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+}
+
+.toast .toast-content span {
+	flex: 1;
+}
+
+.toast button.undo-btn {
+	background: none;
+	border: none;
+	color: #009688;
+	font-weight: 600;
+	cursor: pointer;
+	margin-left: 10px;
+}
+
+
+
+/* -------------------------------------------- */
+/* ------- FollowUps Padding Days Count ------- */
+/* -------------------------------------------- */
+
+/* Hide range when Auto is checked */
+.toggle-btn:has(#followupsPaddingMode-auto:checked) + #followupsPaddingDays {
+    display: none;
+}
+
+
+
+/* ------------------------------------------- */
+/* ------------------- Time ------------------ */
+/* ------------------------------------------- */
+
+/* ---------------- Time Inputs ---------------- */
+input[type="time"] {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid #d1d5db;       /* light gray border */
+    border-radius: 0.5rem;            /* rounded corners */
+    background-color: #ffffff;        /* white background */
+    font-size: 0.95rem;
+    color: #111827;                   /* dark text */
+    outline: none;                     /* remove default focus outline */
+    transition: all 0.2s ease;
+    appearance: none;                  /* remove OS default styling in some browsers */
+}
+
+/* Hover effect */
+input[type="time"]:hover {
+    border-color: #9ca3af;            /* slightly darker gray */
+}
+
+/* Focus effect */
+input[type="time"]:focus {
+    border-color: #2563eb;            /* Tailwind blue-600 */
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2); /* subtle blue glow */
+}
+
+/* Placeholder styling (if applicable) */
+input[type="time"]::placeholder {
+    color: #9ca3af;
+    opacity: 1;  /* make it fully visible */
+}
+
+/* Remove inner shadow / black highlight in Chrome when selecting */
+input[type="time"]::-webkit-inner-spin-button,
+input[type="time"]::-webkit-calendar-picker-indicator {
+    -webkit-appearance: none;
+    margin: 0;
+    cursor: pointer;
+}
+
+/* Ensure consistent height for all browsers */
+input[type="time"] {
+    height: 2.5rem;
+}
+
+/* Grid styling for multiple time inputs */
+.grid.md\:grid-cols-2 input[type="time"] {
+    width: 100%;
+}
+
+
+/* ------------------------------------------- */
+/* ----------------- Required ---------------- */
+/* ------------------------------------------- */
+
+.required {
+  display: inline-block;
+  vertical-align: top;   /* align to top of text */
+  font-size: 0.5em;     /* smaller than normal text */
+  margin-left: 2px;     /* optional spacing */
+  color: red;           /* red color */
+}
+
+
+/* ------------------------------------------ */
+/* ------- Representative Sub Section ------- */
+/* ------------------------------------------ */
+#representativeSubsection {
+    display: none;
+}
+.mb-2:has(#emailCompanyRepresentatives-yes:checked)
++ #representativeSubsection {
+    display: block;
+}
+
+
+
+
+
+/* ---------------------------------------- */
+/* --------------- Template --------------- */
+/* ---------------------------------------- */
