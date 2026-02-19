@@ -8,10 +8,6 @@ from pydantic import BaseModel
 from enum import Enum
 import pyautogui
 
-# Load the JSON file
-with open(USER_DATA_FILE, 'r', encoding='utf-8') as f:
-    user_data = json.load(f)
-
 # ------------------------
 # Pydantic model for clues
 # ------------------------
@@ -169,6 +165,10 @@ def _get_resume_chatgpt(clues: ResumeMatchCluesModel) -> ResumeMetaModel | None:
 
     resume = dict()
 
+    # Reload the JSON file (DB)
+    with open(USER_DATA_FILE, 'r', encoding='utf-8') as f:
+        user_data = json.load(f)
+
     # Job Role
     available_categories = {r['resumeCategory'] for r in user_data['resumes']}
     category_prompts = _build_resume_category_identification_prompt(clues, available_categories)
@@ -198,6 +198,7 @@ response_format = {
         leave_session_opened = True, 
         enable_clipboard_permission_check = True if not automation_controller.chatgpt.is_session_already_open else False,
     )
+    
     if response.success:
         response: list[str] = response.payload
         if len(response) == 1: # Convert string to dict
@@ -299,10 +300,6 @@ def get_best_fit_resume(resume_match_clues: ResumeMatchCluesDict, llmMode: LLMMo
     
     if not clues.has_job_desc:
         return None
-    
-    # Reload the JSON file (DB)
-    with open(USER_DATA_FILE, 'r', encoding='utf-8') as f:
-        user_data = json.load(f)
     
     llm_fn = _get_resume_chatgpt
 
